@@ -6,13 +6,18 @@
  * The user's own install wins. It is the one whose version and config they
  * already trust, and it is on PATH precisely because they put it there. The
  * copy shipped inside the app is only a fallback for machines without one.
+ *
+ * PATH alone is not enough once the app is launched from Finder: a GUI process
+ * inherits `/usr/bin:/bin:/usr/sbin:/sbin` and none of the shell profile that
+ * puts `codex` within reach, so the usual install directories are searched too.
  */
 
 import { spawn } from 'node:child_process'
 import { access, constants } from 'node:fs/promises'
-import { delimiter, join } from 'node:path'
+import { homedir } from 'node:os'
+import { delimiter, dirname, isAbsolute, join } from 'node:path'
 
-export type BinaryOrigin = 'path' | 'bundled'
+export type BinaryOrigin = 'configured' | 'path' | 'known-location' | 'bundled'
 
 export interface ResolvedBinary {
   path: string
@@ -23,7 +28,21 @@ export interface ResolveOptions {
   env?: Record<string, string | undefined>
   /** Null when the app ships without a fallback copy. */
   bundledPath?: string | null
+  home?: string
+  /** Overridable so tests never depend on what this machine has installed. */
+  knownDirectories?: readonly string[]
 }
+
+/** Where the documented installers put `codex`, in the order they are tried. */
+const KNOWN_DIRECTORIES: readonly string[] = [
+  '~/.local/bin',
+  '/opt/homebrew/bin',
+  '/usr/local/bin',
+  '~/.bun/bin',
+  '~/.volta/bin',
+  '~/.npm-global/bin',
+  '~/bin'
+]
 
 export interface RunOptions {
   /** Per-account `CODEX_HOME`, which is how credentials stay separated. */
@@ -52,11 +71,25 @@ async function executable(path: string): Promise<boolean> {
 
 export async function resolveCodexBinary(options: ResolveOptions = {}): Promise<ResolvedBinary | null> {
   const env = options.env ?? process.env
-  const directories = (env.PATH ?? '').split(delimiter).filter((entry) => entry.length > 0)
+  const home = options.home ?? homedir()
 
-  for (const directory of directories) {
+  // An explicit setting beats every guess, which is the escape hatch for an
+  // install this list has never heard of.
+  const configured = env.CODEX_QUOTA_CODEX_BIN
+  if (configured !== undefined && configured.length > 0) {
+    return (await executable(configured)) ? { path: configured, origin: 'configured' } : null
+  }
+
+  const onPath = (env.PATH ?? '').split(delimiter).filter((entry) => entry.length > 0)
+  for (const directory of onPath) {
     const candidate = join(directory, 'codex')
     if (await executable(candidate)) return { path: candidate, origin: 'path' }
+  }
+
+  for (const directory of options.knownDirectories ?? KNOWN_DIRECTORIES) {
+    const expanded = isAbsolute(directory) ? directory : join(home, directory.replace(/^~\//, ''))
+    const candidate = join(expanded, 'codex')
+    if (await executable(candidate)) return { path: candidate, origin: 'known-location' }
   }
 
   const bundled = options.bundledPath
@@ -69,9 +102,13 @@ export async function runCodex(binary: string, options: RunOptions): Promise<Run
   const { codexHome, args, stdin, timeoutMs = 120_000 } = options
 
   return new Promise<RunResult>((resolve, reject) => {
+    const env = options.env ?? process.env
     const child = spawn(binary, args, {
       env: {
-        ...(options.env ?? process.env),
+        ...env,
+        // Codex looks for its own helpers next to itself, which a GUI-inherited
+        // PATH would not cover.
+        PATH: [dirname(binary), env.PATH ?? '/usr/bin:/bin'].join(delimiter),
         CODEX_HOME: codexHome,
         TERM: process.env.TERM ?? 'xterm-256color'
       },

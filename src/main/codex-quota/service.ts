@@ -239,15 +239,25 @@ export function createCodexQuotaService(
   }
 
   /** Refuses as an outcome rather than throwing, so the UI can explain it. */
+  function findCodex(): Promise<ResolvedBinary | null> {
+    return resolveCodexBinary({ bundledPath: options.bundledCodexPath ?? null })
+  }
+
   async function requireCodex(): Promise<ResolvedBinary> {
-    const binary = await resolveCodexBinary({ bundledPath: options.bundledCodexPath ?? null })
+    const binary = await findCodex()
     if (binary === null) {
       throw new ActionError(
         'The codex command could not be found.',
-        'Install the Codex CLI and make sure `codex` is on your PATH.'
+        'Install the Codex CLI, or set CODEX_QUOTA_CODEX_BIN to the codex you want the app to run.'
       )
     }
     return binary
+  }
+
+  /** What the environment looks like right now, both parts of it shelling out. */
+  async function observe(): Promise<{ desktopRunning: boolean; codexBinary: string | null }> {
+    const [desktopRunning, binary] = await Promise.all([isDesktopRunning(), findCodex()])
+    return { desktopRunning, codexBinary: binary?.path ?? null }
   }
 
   /** One minimal billed request, which is what actually starts the window. */
@@ -300,7 +310,7 @@ export function createCodexQuotaService(
       }
 
       return {
-        detail: `Billed one ${paths.windowStartModel} request through ${binary.origin === 'path' ? 'your' : 'the bundled'} codex. Refresh to see the new window.`
+        detail: `Billed one ${paths.windowStartModel} request through ${binary.path}. Refresh to see the new window.`
       }
     } finally {
       await rm(workdir, { recursive: true, force: true }).catch(() => undefined)
@@ -309,11 +319,11 @@ export function createCodexQuotaService(
 
   return {
     async readRegistry(): Promise<RegistrySnapshot> {
-      return readRegistrySnapshot(paths, { desktopRunning: await isDesktopRunning() })
+      return readRegistrySnapshot(paths, await observe())
     },
 
     async readEnvironment(): Promise<EnvironmentSnapshot> {
-      return readEnvironmentSnapshot(paths, { desktopRunning: await isDesktopRunning() })
+      return readEnvironmentSnapshot(paths, await observe())
     },
     fetchQuota,
 

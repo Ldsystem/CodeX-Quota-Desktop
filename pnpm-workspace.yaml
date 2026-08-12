@@ -1,0 +1,12 @@
+# pnpm 11 reads build-script approvals from here rather than from package.json.
+allowBuilds:
+  electron: true
+  esbuild: true
+  app-builder-bin: true
+  # Windows installer tooling this macOS-only build never runs.
+  electron-winstaller: false
+
+# browserslist data ships daily and the lockfile tracks it, so the release-age
+# policy is waived for that package alone rather than switched off.
+minimumReleaseAgeExclude:
+  - electron-to-chromium

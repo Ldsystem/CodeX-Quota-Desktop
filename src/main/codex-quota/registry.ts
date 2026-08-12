@@ -21,6 +21,8 @@ import { accountAuthPath, accountProfilePath, type CodexQuotaPaths } from './pat
 export interface RegistryOptions {
   /** Observed by the caller, since detection shells out. */
   desktopRunning: boolean
+  /** Resolved by the caller, since the search order lives with the spawner. */
+  codexBinary?: string | null
 }
 
 interface ActiveRecord {
@@ -128,6 +130,7 @@ export async function readEnvironmentSnapshot(
     liveAuthPath: paths.liveAuth,
     backupsPath: paths.backupsDir,
     activeAccount: record?.account ?? null,
+    codexBinary: options.codexBinary ?? null,
     proxyUrl: paths.proxyUrl,
     usageApiUrl: paths.usageUrl,
     windowStartModel: paths.windowStartModel,

@@ -4,7 +4,7 @@ Desktop application for managing several Codex accounts and comparing their quot
 
 ## Status
 
-The interface layer is built. Account and quota data currently comes from a fixture source (`src/renderer/src/lib/fixture-service.ts`) so the UI can be designed and reviewed against realistic states, including slow and failing fetches. The native implementation of `CodexQuotaService` reads and writes the real profiles under `~/.codex-quota/` and the live credential at `~/.codex/auth.json`; it is not written yet.
+Working against real data. The main process reads the profiles under `~/.codex-quota/`, the live credential at `~/.codex/auth.json`, and the Codex usage API, and it performs every action the CLI does. The fixture source (`src/renderer/src/lib/fixture-service.ts`) is still there and takes over automatically when the renderer runs in a plain browser through `pnpm dev:web`, so the interface can be worked on without touching real credentials.
 
 ## Shape of the interface
 
@@ -59,12 +59,33 @@ src/
   renderer/    React interface
 ```
 
+## The codex command
+
+Signing in, signing out, and priming a quota window all spawn the real `codex`. Nothing is bundled: the app uses the one already installed, looking at `PATH` first and then at the usual install directories, because an app started from Finder inherits only `/usr/bin:/bin:/usr/sbin:/sbin` and never sees a shell profile. Set `CODEX_QUOTA_CODEX_BIN` to choose a specific one. Settings shows which command was found.
+
 ## Commands
 
 ```bash
 pnpm install
 pnpm dev        # Electron with hot reload
 pnpm dev:web    # Renderer only, in a browser at http://localhost:5273
+pnpm test
 pnpm typecheck
 pnpm build
+pnpm dist       # Unsigned macOS arm64 .dmg and .zip in release/
 ```
+
+## Installing the local build
+
+```bash
+pnpm dist
+open release                      # then drag Codex Quota.app to /Applications
+```
+
+The build is ad-hoc signed, not notarised, and has no Developer ID. That is enough for macOS to start it locally. A copy that travels through a browser, AirDrop, or another Mac arrives quarantined, and Gatekeeper will refuse it until it is opened once with right-click → Open, or cleared with:
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/Codex Quota.app"
+```
+
+There is no auto-update. Run `pnpm dist` again and replace the app.

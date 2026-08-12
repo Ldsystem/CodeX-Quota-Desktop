@@ -23,21 +23,62 @@ describe('codex binary resolution', () => {
     return path
   }
 
+  /** Nothing installed anywhere unless a test puts it there. */
+  function resolve(
+    overrides: Parameters<typeof resolveCodexBinary>[0] = {}
+  ): ReturnType<typeof resolveCodexBinary> {
+    return resolveCodexBinary({
+      env: { PATH: join(scratch.home, 'empty') },
+      home: scratch.home,
+      knownDirectories: [],
+      bundledPath: null,
+      ...overrides
+    })
+  }
+
   it("prefers the user's own codex on PATH", async () => {
     const onPath = await fakeBinary(join(scratch.home, 'bin'))
     const bundled = await fakeBinary(join(scratch.home, 'bundled'))
 
-    expect(
-      await resolveCodexBinary({ env: { PATH: join(scratch.home, 'bin') }, bundledPath: bundled })
-    ).toEqual({ path: onPath, origin: 'path' })
+    expect(await resolve({ env: { PATH: join(scratch.home, 'bin') }, bundledPath: bundled })).toEqual(
+      { path: onPath, origin: 'path' }
+    )
   })
 
-  it('falls back to the bundled copy when PATH has none', async () => {
-    const bundled = await fakeBinary(join(scratch.home, 'bundled'))
+  it('searches the usual install directories, which a GUI launch leaves off PATH', async () => {
+    const installed = await fakeBinary(join(scratch.home, '.local', 'bin'))
+
+    expect(await resolve({ knownDirectories: ['~/.local/bin'] })).toEqual({
+      path: installed,
+      origin: 'known-location'
+    })
+  })
+
+  it('takes the configured path over anything it could find', async () => {
+    await fakeBinary(join(scratch.home, 'bin'))
+    const chosen = await fakeBinary(join(scratch.home, 'custom'), 'codex-nightly')
 
     expect(
-      await resolveCodexBinary({ env: { PATH: join(scratch.home, 'empty') }, bundledPath: bundled })
-    ).toEqual({ path: bundled, origin: 'bundled' })
+      await resolve({
+        env: { PATH: join(scratch.home, 'bin'), CODEX_QUOTA_CODEX_BIN: chosen }
+      })
+    ).toEqual({ path: chosen, origin: 'configured' })
+  })
+
+  it('reports nothing when the configured path is wrong, rather than silently using another', async () => {
+    await fakeBinary(join(scratch.home, 'bin'))
+
+    expect(
+      await resolve({
+        env: { PATH: join(scratch.home, 'bin'), CODEX_QUOTA_CODEX_BIN: join(scratch.home, 'gone') }
+      })
+    ).toBeNull()
+  })
+
+  it('falls back to the bundled copy when nothing else exists', async () => {
+    const bundled = await fakeBinary(join(scratch.home, 'bundled'))
+
+    expect(await resolve({ bundledPath: bundled })).toEqual({ path: bundled, origin: 'bundled' })
   })
 
   it('ignores a non-executable file on PATH', async () => {
@@ -45,13 +86,11 @@ describe('codex binary resolution', () => {
     await mkdir(directory, { recursive: true })
     await writeFile(join(directory, 'codex'), 'not executable', { mode: 0o644 })
 
-    expect(await resolveCodexBinary({ env: { PATH: directory }, bundledPath: null })).toBeNull()
+    expect(await resolve({ env: { PATH: directory } })).toBeNull()
   })
 
   it('reports nothing when neither exists', async () => {
-    expect(
-      await resolveCodexBinary({ env: { PATH: join(scratch.home, 'empty') }, bundledPath: null })
-    ).toBeNull()
+    expect(await resolve()).toBeNull()
   })
 })
 

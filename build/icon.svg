@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#23272c" />
+      <stop offset="1" stop-color="#101215" />
+    </linearGradient>
+    <linearGradient id="edge" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.16" />
+      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0.02" />
+      <stop offset="1" stop-color="#000000" stop-opacity="0.25" />
+    </linearGradient>
+  </defs>
+
+  <rect x="64" y="64" width="896" height="896" rx="208" fill="url(#tile)" />
+  <rect x="64" y="64" width="896" height="896" rx="208" fill="none" stroke="url(#edge)" stroke-width="4" />
+
+  <g stroke="#35d17e" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <path d="M320 372 L470 512 L320 652" stroke-width="64" />
+    <path d="M560 668 L716 668" stroke-width="64" />
+  </g>
+
+  <g fill="#35d17e" opacity="0.9">
+    <rect x="560" y="356" width="52" height="120" rx="26" />
+    <rect x="638" y="316" width="52" height="160" rx="26" />
+    <rect x="716" y="396" width="52" height="80" rx="26" />
+  </g>
+</svg>

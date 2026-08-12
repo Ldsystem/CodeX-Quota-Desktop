@@ -1,0 +1,43 @@
+appId: dev.codexquota.desktop
+productName: Codex Quota
+copyright: Copyright © 2026 Codex Quota
+
+directories:
+  buildResources: build
+  output: release
+
+afterPack: build/after-pack.cjs
+
+# Package the Electron that is already installed here. Downloading another copy
+# would go through a code path that electron-builder 26 cannot run against the
+# @electron/get its own range resolves to.
+electronDist: node_modules/electron/dist
+
+# The renderer is bundled by Vite; only `undici` is left external, and
+# electron-builder packs it from the production dependencies.
+files:
+  - out/**
+  - package.json
+
+mac:
+  category: public.app-category.developer-tools
+  target:
+    - target: dmg
+      arch: arm64
+    - target: zip
+      arch: arm64
+  icon: build/icon.png
+  darkModeSupport: true
+  # No Developer ID here. The bundle is ad-hoc signed by the afterPack hook,
+  # which is the minimum LaunchServices needs to start an arm64 app.
+  identity: null
+  # The app reads and writes ~/.codex and ~/.codex-quota and spawns `codex`,
+  # none of which survives the hardened runtime without an entitlements file
+  # and a real signature.
+  hardenedRuntime: false
+
+dmg:
+  artifactName: ${productName}-${version}-arm64.${ext}
+  title: ${productName} ${version}
+
+nsis: null

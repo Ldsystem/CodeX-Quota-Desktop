@@ -119,6 +119,8 @@ export interface EnvironmentSnapshot {
   backupsPath: string
   /** The account `active.json` claims is live, or null when nothing is recorded. */
   activeAccount: string | null
+  /** The `codex` the app would spawn, or null when it found none to spawn. */
+  codexBinary: string | null
   /** Null when proxying is disabled. */
   proxyUrl: string | null
   usageApiUrl: string

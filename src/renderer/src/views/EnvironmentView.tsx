@@ -73,9 +73,12 @@ export function EnvironmentView({ environment }: EnvironmentViewProps): React.JS
               <span className="fact__value numeric">{environment.windowStartReasoningEffort}</span>
             </div>
           </div>
+          <Path label="codex command" value={environment.codexBinary ?? 'Not found on this machine'} />
           <p className="panel__note">
             Starting a window sends one minimal request so the quota window begins counting from a
-            moment you chose, rather than from whenever you next happen to use the account.
+            moment you chose, rather than from whenever you next happen to use the account. Signing
+            in and out run through the same command. Set <code>CODEX_QUOTA_CODEX_BIN</code> to point
+            at a different one.
           </p>
         </div>
       </Panel>

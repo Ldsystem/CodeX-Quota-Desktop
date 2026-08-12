@@ -49,6 +49,7 @@ const environment: EnvironmentSnapshot = {
   liveAuthPath: '~/.codex/auth.json',
   backupsPath: '~/.codex-quota/backups',
   activeAccount: 'plus_01',
+  codexBinary: '/usr/local/bin/codex',
   proxyUrl: 'http://127.0.0.1:7897',
   usageApiUrl: 'https://chatgpt.com/backend-api/wham/usage',
   windowStartModel: 'gpt-5-codex',
