@@ -1,12 +1,13 @@
 {
   "name": "codex-quota-desktop",
   "version": "0.1.0",
-  "description": "Scaffold for the Codex Quota React desktop app",
+  "description": "Desktop app for managing multiple Codex accounts and comparing quota",
   "main": "./out/main/index.js",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "electron-vite dev",
+    "dev:web": "vite --config vite.web.config.ts",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json"
@@ -16,6 +17,9 @@
     "react-dom": "^19.1.0"
   },
   "devDependencies": {
+    "@fontsource/fira-code": "^5.2.5",
+    "@phosphor-icons/react": "^2.1.7",
+    "@types/node": "^26.2.0",
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",
     "@vitejs/plugin-react": "^4.4.1",
@@ -25,6 +29,9 @@
     "vite": "^6.3.5"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["electron", "esbuild"]
+    "onlyBuiltDependencies": [
+      "electron",
+      "esbuild"
+    ]
   }
 }

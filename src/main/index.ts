@@ -5,10 +5,14 @@ const isDev = !app.isPackaged
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
-    width: 1100,
-    height: 720,
+    width: 1280,
+    height: 820,
+    minWidth: 960,
+    minHeight: 620,
     show: false,
     title: 'Codex Quota',
+    // Avoids a white flash before the renderer paints its own background.
+    backgroundColor: '#0f172a',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,

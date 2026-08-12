@@ -1,7 +1,13 @@
+import '@fontsource/fira-code/400.css'
+import '@fontsource/fira-code/500.css'
+import '@fontsource/fira-code/600.css'
+import './styles/tokens.css'
+import './styles/app.css'
+
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+
 import App from './App'
-import './styles.css'
 
 const rootElement = document.getElementById('root')
 if (!rootElement) {
