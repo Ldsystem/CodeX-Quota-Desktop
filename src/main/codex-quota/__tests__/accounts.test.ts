@@ -1,6 +1,7 @@
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { addAccount, listAccounts, readProfileMode, removeAccount, syncProfileEmail } from '../accounts'
+import { readActive, writeActive } from '../active'
 import { accountAuthPath, accountDir, accountProfilePath } from '../paths'
 import { listDir, scratchHome, type Scratch } from './helpers'
 
@@ -78,6 +79,40 @@ describe('accounts', () => {
 
   it('refuses to remove an account it does not know', async () => {
     await expect(removeAccount(scratch.paths, 'ghost')).rejects.toThrow(/not found/i)
+  })
+
+  it('drops the active claim when the account it named is removed', async () => {
+    await addAccount(scratch.paths, { account: 'work' })
+    await mkdir(scratch.paths.codexHome, { recursive: true })
+    await writeFile(scratch.paths.liveAuth, '{"tokens":{"access_token":"a"}}', { mode: 0o600 })
+    await writeFile(accountAuthPath(scratch.paths, 'work'), '{"tokens":{"access_token":"a"}}', {
+      mode: 0o600
+    })
+    await writeActive(scratch.paths, {
+      account: 'work',
+      source: 'import-active',
+      profileMode: 'desktop_preserving'
+    })
+
+    await removeAccount(scratch.paths, 'work')
+
+    // A claim naming a deleted account would hide the account that really is
+    // live, since every remaining one compares against a name that is gone.
+    expect(await readActive(scratch.paths)).toBeNull()
+  })
+
+  it('keeps the active claim when a different account is removed', async () => {
+    await addAccount(scratch.paths, { account: 'keep' })
+    await addAccount(scratch.paths, { account: 'other' })
+    await writeActive(scratch.paths, {
+      account: 'keep',
+      source: 'activate',
+      profileMode: 'desktop_preserving'
+    })
+
+    await removeAccount(scratch.paths, 'other')
+
+    expect(await readActive(scratch.paths)).toMatchObject({ account: 'keep' })
   })
 
   it('copies the email out of the stored credential into the profile', async () => {

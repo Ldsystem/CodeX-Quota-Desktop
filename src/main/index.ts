@@ -17,7 +17,7 @@ function createWindow(): void {
     // Avoids a white flash before the renderer paints its own background.
     backgroundColor: '#0f172a',
     webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
+      preload: join(__dirname, '../preload/index.cjs'),
       contextIsolation: true,
       nodeIntegration: false
     }

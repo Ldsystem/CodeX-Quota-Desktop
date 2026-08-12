@@ -7,7 +7,14 @@ export default defineConfig({
     plugins: [externalizeDepsPlugin()]
   },
   preload: {
-    plugins: [externalizeDepsPlugin()]
+    plugins: [externalizeDepsPlugin()],
+    build: {
+      rollupOptions: {
+        // A sandboxed preload cannot be an ES module, and `"type": "module"`
+        // would make a plain `.js` one. `.cjs` keeps the sandbox available.
+        output: { format: 'cjs', entryFileNames: 'index.cjs' }
+      }
+    }
   },
   renderer: {
     resolve: {

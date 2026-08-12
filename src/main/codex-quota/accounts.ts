@@ -10,6 +10,7 @@
 import { mkdir, readFile, rm, stat } from 'node:fs/promises'
 
 import { validateAccountName, type ProfileMode } from '../../shared/codex-quota'
+import { readActive } from './active'
 import { writeFileAtomic } from './atomic'
 import { readAuthCredentials } from './auth-file'
 import { ActionError } from './errors'
@@ -174,6 +175,13 @@ export async function removeAccount(paths: CodexQuotaPaths, account: string): Pr
     names.filter((candidate) => candidate !== name)
   )
   await rm(accountDir(paths, name), { recursive: true, force: true })
+
+  // A claim naming a deleted account outlives it and hides whichever account is
+  // really live, because every survivor compares against a name that is gone.
+  // Dropping it lets the digests speak for themselves again.
+  if ((await readActive(paths))?.account === name) {
+    await rm(paths.activeJson, { force: true })
+  }
 }
 
 export async function readProfileMode(
