@@ -27,6 +27,11 @@ export interface RunningJob {
   startedAt: number
 }
 
+export interface ActionOptions {
+  /** Set only once the user has acknowledged switching under a running Desktop. */
+  force?: boolean
+}
+
 export interface WorkbenchState {
   accounts: AccountView[]
   environment: EnvironmentSnapshot | null
@@ -38,7 +43,7 @@ export interface WorkbenchState {
   jobFor: (account: string) => RunningJob | undefined
   refreshAll: () => void
   refreshQuota: (account: string) => void
-  runAction: (action: AccountActionId, account: string) => void
+  runAction: (action: AccountActionId, account: string, options?: ActionOptions) => void
   addAccount: (input: AddAccountInput) => Promise<boolean>
   dismissToast: (id: number) => void
 }
@@ -134,7 +139,7 @@ export function useWorkbench(service: CodexQuotaService): WorkbenchState {
   }, [readRegistry])
 
   const runAction = useCallback(
-    (action: AccountActionId, account: string) => {
+    (action: AccountActionId, account: string, options: ActionOptions = {}) => {
       setJobs((current) => [...current, { account, action, startedAt: Date.now() }])
 
       const finish = (): void => {
@@ -144,7 +149,7 @@ export function useWorkbench(service: CodexQuotaService): WorkbenchState {
         )
       }
 
-      void callAction(service, action, account)
+      void callAction(service, action, account, options)
         .then((outcome) => {
           if (!mounted.current) return
           pushToast({
@@ -222,11 +227,12 @@ export function useWorkbench(service: CodexQuotaService): WorkbenchState {
 function callAction(
   service: CodexQuotaService,
   action: AccountActionId,
-  account: string
+  account: string,
+  options: ActionOptions
 ): ReturnType<CodexQuotaService['activate']> {
   switch (action) {
     case 'activate':
-      return service.activate(account, { force: true })
+      return service.activate(account, { force: options.force === true })
     case 'import-active':
       return service.importActive(account)
     case 'login':

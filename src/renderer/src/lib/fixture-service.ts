@@ -27,6 +27,8 @@ import type {
 } from '../../../shared/codex-quota'
 
 const HOUR = 3600
+const WEEK = 604_800
+const MONTH = 2_592_000
 const TOKEN_USAGE_AVAILABLE = true
 
 function inHours(hours: number): number {
@@ -141,7 +143,18 @@ function seedTokenUsage(seed: number, activeDays: number): TokenUsage | null {
   }
 
   if (daily.length === 0) return null
-  return { lifetimeTokens, since: daily[0]!.date, daily }
+
+  return {
+    lifetimeTokens,
+    peakDailyTokens: daily.reduce((max, day) => Math.max(max, day.tokens), 0),
+    currentStreakDays: seed % 5,
+    longestStreakDays: 8 + (seed % 21),
+    totalThreads: 40 + seed * 7,
+    longestTurnSeconds: 900 + seed * 137,
+    since: daily[0]!.date,
+    statsAsOf: isoDate(today),
+    daily
+  }
 }
 
 function isoDate(value: Date): string {
@@ -163,7 +176,7 @@ function seedQuota(): Record<string, QuotaSeed> {
         email: 'codex.plus01@hey.com',
         plan: 'plus',
         subscriptionExpiresOn: '2026-11-04',
-        weekly: { usedPercent: 77, resetAt: inHours(69) },
+        window: { usedPercent: 77, resetAt: inHours(69), limitWindowSeconds: WEEK, exhausted: false },
         availableResetCredits: 1,
         tokenUsage: seedTokenUsage(3, 96),
         source: 'codex-oauth',
@@ -176,7 +189,7 @@ function seedQuota(): Record<string, QuotaSeed> {
         email: 'codex.plus02@hey.com',
         plan: 'plus',
         subscriptionExpiresOn: '2026-09-19',
-        weekly: { usedPercent: 41, resetAt: inHours(102) },
+        window: { usedPercent: 41, resetAt: inHours(102), limitWindowSeconds: WEEK, exhausted: false },
         availableResetCredits: 0,
         tokenUsage: seedTokenUsage(11, 58),
         source: 'codex-oauth',
@@ -189,7 +202,7 @@ function seedQuota(): Record<string, QuotaSeed> {
         email: 'rui.tan@northloop.dev',
         plan: 'pro',
         subscriptionExpiresOn: '2027-02-28',
-        weekly: { usedPercent: 8, resetAt: inHours(121) },
+        window: { usedPercent: 8, resetAt: inHours(121), limitWindowSeconds: WEEK, exhausted: false },
         availableResetCredits: 3,
         tokenUsage: seedTokenUsage(23, 180),
         source: 'codex-oauth',
@@ -229,7 +242,7 @@ export class FixtureCodexQuotaService implements CodexQuotaService {
           email: null,
           plan: null,
           subscriptionExpiresOn: null,
-          weekly: { usedPercent: null, resetAt: null },
+          window: { usedPercent: null, resetAt: null, limitWindowSeconds: null, exhausted: false },
           availableResetCredits: null,
           tokenUsage: null,
           source: 'unknown' as const,
@@ -286,7 +299,7 @@ export class FixtureCodexQuotaService implements CodexQuotaService {
         email: 'codex.plus01@hey.com',
         plan: 'plus',
         subscriptionExpiresOn: '2026-11-04',
-        weekly: { usedPercent: 77, resetAt: inHours(69) },
+        window: { usedPercent: 77, resetAt: inHours(69), limitWindowSeconds: WEEK, exhausted: false },
         availableResetCredits: 1,
         tokenUsage: seedTokenUsage(3, 96),
         source: 'codex-oauth',
@@ -323,7 +336,7 @@ export class FixtureCodexQuotaService implements CodexQuotaService {
         email: `${account}@example.com`,
         plan: 'plus',
         subscriptionExpiresOn: '2027-01-15',
-        weekly: { usedPercent: 0, resetAt: null },
+        window: { usedPercent: 0, resetAt: null, limitWindowSeconds: MONTH, exhausted: false },
         availableResetCredits: 0,
         tokenUsage: null,
         source: 'codex-oauth',
@@ -343,7 +356,7 @@ export class FixtureCodexQuotaService implements CodexQuotaService {
   async startQuotaWindow(account: string): Promise<ActionOutcome> {
     const seed = this.quota[account]
     if (seed?.report) {
-      seed.report = { ...seed.report, weekly: { ...seed.report.weekly, resetAt: inHours(168) } }
+      seed.report = { ...seed.report, window: { ...seed.report.window, resetAt: inHours(168) } }
     }
     return delay(
       {

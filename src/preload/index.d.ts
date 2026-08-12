@@ -1,8 +1,10 @@
+import type { CodexQuotaService } from '../shared/codex-quota'
+
 declare global {
   interface Window {
-    codexQuotaDesktop: {
-      platform: NodeJS.Platform
-    }
+    /** Absent in the browser preview, which falls back to fixture data. */
+    codexQuota?: CodexQuotaService
+    codexQuotaDesktop?: { platform: string }
   }
 }
 

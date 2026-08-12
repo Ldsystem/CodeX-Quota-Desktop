@@ -12,7 +12,9 @@ import { AccountPage } from './views/AccountPage'
 import { EnvironmentView } from './views/EnvironmentView'
 import { OverviewView } from './views/OverviewView'
 
-const service: CodexQuotaService = new FixtureCodexQuotaService()
+// Under Electron the preload exposes the real service; `pnpm dev:web` has no
+// preload, so the browser preview keeps rendering fixture data.
+const service: CodexQuotaService = window.codexQuota ?? new FixtureCodexQuotaService()
 
 /** Two levels deep at most: the overview, and one thing opened from it. */
 type Route =
@@ -43,7 +45,7 @@ const CONFIRMATIONS: Partial<
   }),
   'start-window': (account) => ({
     title: `Start the quota window for ${account}?`,
-    body: 'One minimal request is billed to this account so the weekly window starts counting now.',
+    body: 'One minimal request is billed to this account so its quota window starts counting now.',
     confirmLabel: 'Start window',
     destructive: false
   })
@@ -87,7 +89,7 @@ export default function App(): React.JSX.Element {
         acknowledgement: 'I will restart Codex Desktop after switching.',
         onConfirm: () => {
           setConfirmRequest(null)
-          bench.runAction(action, account)
+          bench.runAction(action, account, { force: true })
         }
       })
       return

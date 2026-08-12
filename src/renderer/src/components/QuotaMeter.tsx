@@ -1,11 +1,19 @@
 import { ArrowClockwise } from '@phosphor-icons/react'
 
 import type { QuotaState } from '../../../shared/codex-quota'
-import { formatCountdown, formatPercent, formatResetAt, percentLeft, quotaLevel } from '../lib/format'
+import {
+  describeWindow,
+  formatCountdown,
+  formatPercent,
+  formatResetAt,
+  percentLeft,
+  quotaLevel
+} from '../lib/format'
 
 interface QuotaMeterProps {
   state: QuotaState
   now: Date
+  /** Defaults to the window length the API reported once it is known. */
   label?: string
   /** Offered when the fetch failed; omit to render the failure read-only. */
   onRetry?: () => void
@@ -15,7 +23,7 @@ interface QuotaMeterProps {
  * The bar always occupies the same space in every state, so rows do not jump
  * around as background fetches land one by one.
  */
-export function QuotaMeter({ state, now, label = 'Weekly', onRetry }: QuotaMeterProps): React.JSX.Element {
+export function QuotaMeter({ state, now, label = 'Quota', onRetry }: QuotaMeterProps): React.JSX.Element {
   if (state.status === 'loading' || state.status === 'idle') {
     const pending = state.status === 'loading'
     return (
@@ -61,19 +69,20 @@ export function QuotaMeter({ state, now, label = 'Weekly', onRetry }: QuotaMeter
     )
   }
 
-  const { weekly } = state.report
-  const left = percentLeft(weekly)
+  const { window } = state.report
+  const left = percentLeft(window)
   const level = quotaLevel(left)
-  const reset = formatResetAt(weekly.resetAt, now)
-  const countdown = formatCountdown(weekly.resetAt, now)
+  const reset = formatResetAt(window.resetAt, now)
+  const countdown = formatCountdown(window.resetAt, now)
+  const windowLabel = describeWindow(window.limitWindowSeconds)
 
   return (
     <div className="meter">
-      <span className="meter__label">{label}</span>
+      <span className="meter__label">{windowLabel}</span>
       <div
         className="meter__track"
         role="progressbar"
-        aria-label={`${label} quota remaining`}
+        aria-label={`${windowLabel} quota remaining`}
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={left ?? undefined}
@@ -90,7 +99,7 @@ export function QuotaMeter({ state, now, label = 'Weekly', onRetry }: QuotaMeter
           {left !== null ? <span className="visually-hidden"> remaining</span> : null}
         </span>
         <span className="meter__reset">
-          {weekly.resetAt === null
+          {window.resetAt === null
             ? 'window not started'
             : `resets ${reset}${countdown ? `, ${countdown}` : ''}`}
         </span>

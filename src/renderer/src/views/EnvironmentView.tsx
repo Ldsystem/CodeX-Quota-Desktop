@@ -74,7 +74,7 @@ export function EnvironmentView({ environment }: EnvironmentViewProps): React.JS
             </div>
           </div>
           <p className="panel__note">
-            Starting a window sends one minimal request so the weekly window begins counting from a
+            Starting a window sends one minimal request so the quota window begins counting from a
             moment you chose, rather than from whenever you next happen to use the account.
           </p>
         </div>

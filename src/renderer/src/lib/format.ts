@@ -63,6 +63,27 @@ export function formatFetchedAt(iso: string, now: Date): string {
   return TIME_FORMAT.format(fetched)
 }
 
+/**
+ * Names the allowance window the API reported. Paid plans get a week, free
+ * plans a month, so nothing may assume "weekly".
+ */
+export function describeWindow(seconds: number | null): string {
+  if (seconds === null) return 'Quota'
+  if (seconds === 604_800) return 'Weekly'
+  if (seconds === 2_592_000) return 'Monthly'
+  if (seconds === 86_400) return 'Daily'
+  if (seconds % 86_400 === 0) return `${seconds / 86_400}-day`
+  return `${Math.max(1, Math.round(seconds / 3600))}-hour`
+}
+
+export function formatDuration(seconds: number | null): string | null {
+  if (seconds === null || seconds <= 0) return null
+  const hours = Math.floor(seconds / 3600)
+  const minutes = Math.round((seconds % 3600) / 60)
+  if (hours > 0) return `${hours}h ${minutes}m`
+  return `${minutes}m`
+}
+
 /** Token counts get large fast, so they are always abbreviated. */
 export function formatTokens(tokens: number): string {
   if (tokens >= 1_000_000_000) return `${(tokens / 1_000_000_000).toFixed(1)}B`

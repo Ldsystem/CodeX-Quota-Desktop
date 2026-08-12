@@ -32,6 +32,8 @@ import { Panel } from '../components/Panel'
 import { QuotaMeter } from '../components/QuotaMeter'
 import { TokenActivity } from '../components/TokenActivity'
 import {
+  describeWindow,
+  formatDuration,
   formatExpiry,
   formatFetchedAt,
   formatPlan,
@@ -117,8 +119,36 @@ export function AccountPage({
               subtitle={`${formatTokens(tokenUsage.lifetimeTokens)} tokens in total${
                 tokenUsage.since ? ` since ${formatExpiry(tokenUsage.since)}` : ''
               }`}
+              aside={
+                tokenUsage.statsAsOf ? (
+                  <span className="panel__pending">as of {formatExpiry(tokenUsage.statsAsOf)}</span>
+                ) : null
+              }
             >
               <TokenActivity usage={tokenUsage} />
+              <div className="fact-grid">
+                <Fact
+                  label="Busiest day"
+                  value={
+                    tokenUsage.peakDailyTokens === null
+                      ? null
+                      : `${formatTokens(tokenUsage.peakDailyTokens)} tokens`
+                  }
+                />
+                <Fact
+                  label="Streak"
+                  value={
+                    tokenUsage.currentStreakDays === null
+                      ? null
+                      : `${tokenUsage.currentStreakDays}d, best ${tokenUsage.longestStreakDays ?? '?'}d`
+                  }
+                />
+                <Fact
+                  label="Threads"
+                  value={tokenUsage.totalThreads === null ? null : String(tokenUsage.totalThreads)}
+                />
+                <Fact label="Longest turn" value={formatDuration(tokenUsage.longestTurnSeconds)} />
+              </div>
             </Panel>
           ) : null}
 
@@ -138,8 +168,8 @@ export function AccountPage({
                 pending={quota.status === 'loading'}
               />
               <Fact
-                label="Weekly window resets"
-                value={report ? formatResetAt(report.weekly.resetAt, now) : null}
+                label={`${report ? describeWindow(report.window.limitWindowSeconds) : 'Quota'} window resets`}
+                value={report ? formatResetAt(report.window.resetAt, now) : null}
                 pending={quota.status === 'loading'}
               />
               <Fact

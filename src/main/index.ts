@@ -1,6 +1,9 @@
 import { app, BrowserWindow } from 'electron'
 import { join } from 'node:path'
 
+import { createCodexQuotaService } from './codex-quota/service'
+import { registerCodexQuotaIpc } from './ipc'
+
 const isDev = !app.isPackaged
 
 function createWindow(): void {
@@ -32,6 +35,7 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  registerCodexQuotaIpc(createCodexQuotaService(undefined, { allowTokenRefresh: true }))
   createWindow()
 
   app.on('activate', () => {

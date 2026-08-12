@@ -29,14 +29,20 @@ export type WarningLabel =
 export type QuotaSource = 'codex-oauth' | 'codex-oauth-partial' | 'unknown'
 
 /**
- * Codex no longer enforces a rolling 5-hour limit, so the weekly window is the
- * only quota worth tracking.
+ * Codex no longer enforces a rolling 5-hour limit; the usage API now reports a
+ * single allowance window whose length depends on the plan (a week on paid
+ * plans, a month on free), so the length travels with the numbers rather than
+ * being assumed.
  */
 export interface QuotaWindow {
   /** 0-100, or null when the usage API did not return a figure. */
   usedPercent: number | null
   /** Epoch seconds, or null when unknown. */
   resetAt: number | null
+  /** Window length in seconds: 604800 weekly, 2592000 monthly. */
+  limitWindowSeconds: number | null
+  /** Reported by the API rather than inferred from the percentage. */
+  exhausted: boolean
 }
 
 /** Everything readable from disk without touching the network. */
@@ -58,14 +64,22 @@ export interface TokenUsageDay {
 }
 
 /**
- * Optional. The CLI never read token counts, and the usage endpoint is not
- * documented, so this may simply not be obtainable. Everything that consumes
- * it must degrade to hiding itself rather than showing a blank or a zero.
+ * Account token history, from the profile endpoint rather than the usage one.
+ * Optional throughout: an account can answer usage but not profile, and every
+ * consumer must hide itself rather than show a blank or an invented zero.
  */
 export interface TokenUsage {
   lifetimeTokens: number
+  peakDailyTokens: number | null
+  currentStreakDays: number | null
+  longestStreakDays: number | null
+  totalThreads: number | null
+  /** Longest single turn, in seconds. */
+  longestTurnSeconds: number | null
   /** ISO date of the earliest bucket, or null when the series has no start. */
   since: string | null
+  /** The day the server last recomputed these; it can lag behind live usage. */
+  statsAsOf: string | null
   /** Oldest to newest, one entry per day, gaps allowed. */
   daily: TokenUsageDay[]
 }
@@ -76,7 +90,7 @@ export interface QuotaReport {
   plan: string | null
   /** ISO date (yyyy-mm-dd) parsed from the id_token subscription claim. */
   subscriptionExpiresOn: string | null
-  weekly: QuotaWindow
+  window: QuotaWindow
   /** Codex Desktop calls these "available resets". */
   availableResetCredits: number | null
   /** Null when the account reports no token history. */
@@ -297,7 +311,7 @@ export function resolveActionAvailability(
       }
       return {
         enabled: true,
-        reason: 'Sends one minimal billed request so the weekly window starts counting now.'
+        reason: 'Sends one minimal billed request so the quota window starts counting now.'
       }
 
     case 'logout':

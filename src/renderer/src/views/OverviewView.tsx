@@ -71,8 +71,8 @@ export function OverviewView({
 
   const nextReset = accounts
     .flatMap((account) =>
-      account.quota.status === 'ready' && account.quota.report.weekly.resetAt !== null
-        ? [{ account: account.account, resetAt: account.quota.report.weekly.resetAt }]
+      account.quota.status === 'ready' && account.quota.report.window.resetAt !== null
+        ? [{ account: account.account, resetAt: account.quota.report.window.resetAt }]
         : []
     )
     .sort((a, b) => a.resetAt - b.resetAt)[0]
@@ -88,13 +88,14 @@ export function OverviewView({
           tone={active ? 'accent' : 'neutral'}
         />
 
-        {lifetime.accounts > 0 || anyPending ? (
+        {/* The usage API reports no token history, so this card stays hidden
+            unless some account ever starts returning one. */}
+        {lifetime.accounts > 0 ? (
           <StatCard
             label="Lifetime tokens"
             value={formatTokens(lifetime.tokens)}
             note={`across ${lifetime.accounts} account${lifetime.accounts === 1 ? '' : 's'}`}
             icon={<Coins size={15} weight="bold" />}
-            pending={anyPending && lifetime.accounts === 0}
           />
         ) : null}
 
