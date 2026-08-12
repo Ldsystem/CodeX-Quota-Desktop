@@ -8,7 +8,12 @@ import {
   WarningCircle
 } from '@phosphor-icons/react'
 
-import type { AccountView, EnvironmentSnapshot } from '../../../shared/codex-quota'
+import {
+  isQuotaSpent,
+  isReadyToSwitch,
+  type AccountView,
+  type EnvironmentSnapshot
+} from '../../../shared/codex-quota'
 import { AccountRow } from '../components/AccountRow'
 import { StatCard } from '../components/StatCard'
 import { formatCountdown, formatResetAt, formatTokens } from '../lib/format'
@@ -52,8 +57,12 @@ export function OverviewView({
     )
   }
 
-  const ready = accounts.filter(
-    (account) => account.profileMode === 'desktop_preserving' && account.hasStoredAuth
+  const ready = accounts.filter(isReadyToSwitch)
+  const spent = accounts.filter(
+    (account) =>
+      account.profileMode === 'desktop_preserving' &&
+      account.hasStoredAuth &&
+      isQuotaSpent(account.quota)
   )
   const active = accounts.find((account) => account.active === 'yes')
 
@@ -83,7 +92,12 @@ export function OverviewView({
         <StatCard
           label="Ready to switch"
           value={`${ready.length}/${accounts.length}`}
-          note={active ? `${active.account} in use` : 'no account is in use'}
+          note={[
+            active ? `${active.account} in use` : 'no account is in use',
+            spent.length > 0 ? `${spent.length} out of quota` : null
+          ]
+            .filter(Boolean)
+            .join(' · ')}
           icon={<ArrowsLeftRight size={15} weight="bold" />}
           tone={active ? 'accent' : 'neutral'}
         />

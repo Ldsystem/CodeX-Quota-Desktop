@@ -10,6 +10,7 @@ import type { AddAccountInput, CodexQuotaService } from '../shared/codex-quota'
 
 export const CHANNEL = {
   readRegistry: 'codex-quota:read-registry',
+  readEnvironment: 'codex-quota:read-environment',
   fetchQuota: 'codex-quota:fetch-quota',
   addAccount: 'codex-quota:add-account',
   importActive: 'codex-quota:import-active',
@@ -23,6 +24,7 @@ export const CHANNEL = {
 
 export function registerCodexQuotaIpc(service: CodexQuotaService): void {
   ipcMain.handle(CHANNEL.readRegistry, () => service.readRegistry())
+  ipcMain.handle(CHANNEL.readEnvironment, () => service.readEnvironment())
   ipcMain.handle(CHANNEL.fetchQuota, (_event, account: string) => service.fetchQuota(account))
   ipcMain.handle(CHANNEL.addAccount, (_event, input: AddAccountInput) => service.addAccount(input))
   ipcMain.handle(CHANNEL.importActive, (_event, account: string, options?: { create?: boolean }) =>

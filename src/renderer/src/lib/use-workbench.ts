@@ -51,8 +51,12 @@ export interface WorkbenchState {
 /** Actions whose result changes what the usage API would say. */
 const REFETCH_AFTER: AccountActionId[] = ['import-active', 'login', 'start-window']
 
+/** How often the local environment is re-read while the window is on screen. */
+const ENVIRONMENT_POLL_MS = 10_000
+
 export function useWorkbench(service: CodexQuotaService): WorkbenchState {
   const [registry, setRegistry] = useState<RegistrySnapshot | null>(null)
+  const [environment, setEnvironment] = useState<EnvironmentSnapshot | null>(null)
   const [registryStatus, setRegistryStatus] = useState<'loading' | 'ready' | 'failed'>('loading')
   const [quota, setQuota] = useState<Record<string, QuotaState>>({})
   const [jobs, setJobs] = useState<RunningJob[]>([])
@@ -113,6 +117,7 @@ export function useWorkbench(service: CodexQuotaService): WorkbenchState {
         .then((snapshot) => {
           if (!mounted.current) return
           setRegistry(snapshot)
+          setEnvironment(snapshot.environment)
           setRegistryStatus('ready')
           // Drop cached quota for accounts that no longer exist.
           setQuota((current) => {
@@ -137,6 +142,34 @@ export function useWorkbench(service: CodexQuotaService): WorkbenchState {
   useEffect(() => {
     readRegistry({ thenFetchQuota: true })
   }, [readRegistry])
+
+  const readEnvironment = useCallback(() => {
+    void service
+      .readEnvironment()
+      .then((snapshot) => {
+        if (mounted.current) setEnvironment(snapshot)
+      })
+      // A failed probe leaves the last known reading rather than inventing one.
+      .catch(() => undefined)
+  }, [service])
+
+  useEffect(() => {
+    // Codex Desktop can be opened or quit while this window sits untouched, and
+    // nothing in the registry changes when it does, so the indicator has to ask.
+    const sync = (): void => {
+      if (document.visibilityState === 'visible') readEnvironment()
+    }
+
+    const timer = window.setInterval(sync, ENVIRONMENT_POLL_MS)
+    window.addEventListener('focus', sync)
+    document.addEventListener('visibilitychange', sync)
+
+    return () => {
+      window.clearInterval(timer)
+      window.removeEventListener('focus', sync)
+      document.removeEventListener('visibilitychange', sync)
+    }
+  }, [readEnvironment])
 
   const runAction = useCallback(
     (action: AccountActionId, account: string, options: ActionOptions = {}) => {
@@ -209,7 +242,7 @@ export function useWorkbench(service: CodexQuotaService): WorkbenchState {
 
   return {
     accounts,
-    environment: registry?.environment ?? null,
+    environment: environment ?? registry?.environment ?? null,
     registryReadAt: registry?.readAt ?? null,
     registryStatus,
     quotaPending: accounts.filter((account) => account.quota.status === 'loading').length,

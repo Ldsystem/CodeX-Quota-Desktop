@@ -2,10 +2,7 @@ import type { QuotaWindow } from '../../../shared/codex-quota'
 
 export const EM_DASH_FREE_PLACEHOLDER = 'Unknown'
 
-export function percentLeft(window: QuotaWindow): number | null {
-  if (window.usedPercent === null) return null
-  return Math.min(100, Math.max(0, Math.round(100 - window.usedPercent)))
-}
+export { quotaPercentLeft as percentLeft } from '../../../shared/codex-quota'
 
 export type QuotaLevel = 'healthy' | 'low' | 'critical' | 'unknown'
 

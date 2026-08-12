@@ -232,6 +232,10 @@ export class FixtureCodexQuotaService implements CodexQuotaService {
     )
   }
 
+  async readEnvironment(): Promise<EnvironmentSnapshot> {
+    return delay({ ...this.environment }, 60)
+  }
+
   async fetchQuota(account: string): Promise<QuotaReport> {
     const seed = this.quota[account]
     const record = this.records.find((entry) => entry.account === account)

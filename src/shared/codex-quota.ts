@@ -158,6 +158,8 @@ export interface AddAccountInput {
 export interface CodexQuotaService {
   /** Local read. Expected to resolve fast enough to render on first paint. */
   readRegistry(): Promise<RegistrySnapshot>
+  /** Local-only re-read for state that changes without the registry changing. */
+  readEnvironment(): Promise<EnvironmentSnapshot>
   /** Network read for a single account. Safe to run for several accounts at once. */
   fetchQuota(account: string): Promise<QuotaReport>
   addAccount(input: AddAccountInput): Promise<ActionOutcome>
@@ -260,6 +262,40 @@ export function validateAccountName(name: string, existing: readonly string[] = 
   }
   if (existing.includes(trimmed)) return `"${trimmed}" already exists.`
   return null
+}
+
+/**
+ * Headroom as the meter shows it: percent of the window still available.
+ *
+ * A reached limit wins over the percentage. The API flips `limit_reached` the
+ * moment requests start being refused, while `used_percent` has been observed
+ * lagging a few points behind, and showing headroom that cannot be spent is
+ * worse than showing none.
+ */
+export function quotaPercentLeft(window: QuotaWindow): number | null {
+  if (window.exhausted) return 0
+  if (window.usedPercent === null) return null
+  return Math.min(100, Math.max(0, Math.round(100 - window.usedPercent)))
+}
+
+/** A window with nothing left in it. */
+export function isQuotaSpent(quota: QuotaState): boolean {
+  // An unread window is unknown, not empty; assuming the worst would make
+  // counts jump around as background fetches land.
+  if (quota.status !== 'ready') return false
+  return quotaPercentLeft(quota.report.window) === 0
+}
+
+/**
+ * Switching to an account only helps if it can actually serve a session, so a
+ * spent window disqualifies it however healthy its credential is.
+ */
+export function isReadyToSwitch(account: AccountView): boolean {
+  return (
+    account.profileMode === 'desktop_preserving' &&
+    account.hasStoredAuth &&
+    !isQuotaSpent(account.quota)
+  )
 }
 
 export interface ActionAvailability {

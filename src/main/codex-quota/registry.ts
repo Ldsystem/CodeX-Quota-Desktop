@@ -110,6 +110,31 @@ function resolveActive(
   return matched ? { state: 'yes', drifted: false } : { state: 'unknown', drifted: true }
 }
 
+/**
+ * Cheap enough to repeat on its own, which is how the workbench keeps the
+ * Desktop indicator honest: Codex can be opened or quit at any moment, with
+ * nothing in the registry changing to announce it.
+ */
+export async function readEnvironmentSnapshot(
+  paths: CodexQuotaPaths,
+  options: RegistryOptions,
+  active?: ActiveRecord | null
+): Promise<EnvironmentSnapshot> {
+  const record = active === undefined ? await readActiveRecord(paths.activeJson) : active
+
+  return {
+    desktopRunning: options.desktopRunning,
+    storageRoot: paths.home,
+    liveAuthPath: paths.liveAuth,
+    backupsPath: paths.backupsDir,
+    activeAccount: record?.account ?? null,
+    proxyUrl: paths.proxyUrl,
+    usageApiUrl: paths.usageUrl,
+    windowStartModel: paths.windowStartModel,
+    windowStartReasoningEffort: paths.windowStartReasoningEffort
+  }
+}
+
 export async function readRegistrySnapshot(
   paths: CodexQuotaPaths,
   options: RegistryOptions
@@ -124,17 +149,7 @@ export async function readRegistrySnapshot(
     names.map((account) => readAccount(paths, account, active, liveSha))
   )
 
-  const environment: EnvironmentSnapshot = {
-    desktopRunning: options.desktopRunning,
-    storageRoot: paths.home,
-    liveAuthPath: paths.liveAuth,
-    backupsPath: paths.backupsDir,
-    activeAccount: active?.account ?? null,
-    proxyUrl: paths.proxyUrl,
-    usageApiUrl: paths.usageUrl,
-    windowStartModel: paths.windowStartModel,
-    windowStartReasoningEffort: paths.windowStartReasoningEffort
-  }
+  const environment = await readEnvironmentSnapshot(paths, options, active)
 
   return { readAt: new Date().toISOString(), environment, accounts }
 }

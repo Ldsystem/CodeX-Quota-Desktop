@@ -4,6 +4,7 @@ import type { AddAccountInput, CodexQuotaService } from '../shared/codex-quota'
 
 const CHANNEL = {
   readRegistry: 'codex-quota:read-registry',
+  readEnvironment: 'codex-quota:read-environment',
   fetchQuota: 'codex-quota:fetch-quota',
   addAccount: 'codex-quota:add-account',
   importActive: 'codex-quota:import-active',
@@ -29,6 +30,7 @@ async function invoke<T>(channel: string, ...args: unknown[]): Promise<T> {
 
 const service: CodexQuotaService = {
   readRegistry: () => invoke(CHANNEL.readRegistry),
+  readEnvironment: () => invoke(CHANNEL.readEnvironment),
   fetchQuota: (account) => invoke(CHANNEL.fetchQuota, account),
   addAccount: (input: AddAccountInput) => invoke(CHANNEL.addAccount, input),
   importActive: (account, options) => invoke(CHANNEL.importActive, account, options),

@@ -14,6 +14,7 @@ import {
   type ActionOutcome,
   type AddAccountInput,
   type CodexQuotaService,
+  type EnvironmentSnapshot,
   type QuotaReport,
   type QuotaSource,
   type RegistrySnapshot,
@@ -46,7 +47,7 @@ import {
   type CodexQuotaPaths
 } from './paths'
 import { mapProfileResponse, PROFILE_URL } from './profile'
-import { readRegistrySnapshot } from './registry'
+import { readEnvironmentSnapshot, readRegistrySnapshot } from './registry'
 import { mapUsageResponse } from './usage'
 
 interface Subscription {
@@ -309,6 +310,10 @@ export function createCodexQuotaService(
   return {
     async readRegistry(): Promise<RegistrySnapshot> {
       return readRegistrySnapshot(paths, { desktopRunning: await isDesktopRunning() })
+    },
+
+    async readEnvironment(): Promise<EnvironmentSnapshot> {
+      return readEnvironmentSnapshot(paths, { desktopRunning: await isDesktopRunning() })
     },
     fetchQuota,
 

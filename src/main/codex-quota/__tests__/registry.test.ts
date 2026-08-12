@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import { resolvePaths, type CodexQuotaPaths } from '../paths'
-import { readRegistrySnapshot } from '../registry'
+import { readEnvironmentSnapshot, readRegistrySnapshot } from '../registry'
 
 let root = ''
 let paths: CodexQuotaPaths
@@ -40,6 +40,24 @@ async function addAccount(
 
 const snapshot = async (): Promise<Awaited<ReturnType<typeof readRegistrySnapshot>>> =>
   readRegistrySnapshot(paths, { desktopRunning: false })
+
+describe('readEnvironmentSnapshot', () => {
+  it('reports the Desktop state and active claim without reading any account', async () => {
+    await addAccount('plus_01', { auth: '{"tokens":{"access_token":"a"}}' })
+    await writeFile(paths.activeJson, JSON.stringify({ account: 'plus_01' }), 'utf8')
+
+    const idle = await readEnvironmentSnapshot(paths, { desktopRunning: false })
+    expect(idle).toMatchObject({ desktopRunning: false, activeAccount: 'plus_01' })
+
+    const running = await readEnvironmentSnapshot(paths, { desktopRunning: true })
+    expect(running.desktopRunning).toBe(true)
+  })
+
+  it('reports no active account when nothing claims one', async () => {
+    const result = await readEnvironmentSnapshot(paths, { desktopRunning: false })
+    expect(result.activeAccount).toBeNull()
+  })
+})
 
 describe('readRegistrySnapshot', () => {
   it('returns no accounts when the registry file does not exist', async () => {
