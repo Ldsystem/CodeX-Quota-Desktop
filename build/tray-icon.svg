@@ -1,0 +1,17 @@
+<!--
+  Menu bar icon. Template images are drawn as a mask: only opacity matters, so
+  everything is flat black and macOS inverts it for the light or dark menu bar.
+  The prompt mark from icon.svg, without the tile, at the weight a 22pt glyph
+  can still resolve.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44">
+  <g stroke="#000000" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <path d="M11 13 L20 22 L11 31" stroke-width="4.5" />
+    <path d="M25 31 L33 31" stroke-width="4.5" />
+  </g>
+  <g fill="#000000">
+    <rect x="24.5" y="12" width="3.6" height="9" rx="1.8" />
+    <rect x="29.6" y="9.5" width="3.6" height="11.5" rx="1.8" />
+    <rect x="34.7" y="14.5" width="3.6" height="6.5" rx="1.8" />
+  </g>
+</svg>

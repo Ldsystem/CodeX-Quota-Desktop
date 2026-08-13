@@ -19,6 +19,15 @@ files:
   - out/**
   - package.json
 
+# The menu bar icon is read at runtime, so it has to exist outside the asar.
+# Flattened into Resources/ because that is where the tray looks; nativeImage
+# finds the @2x file on its own once its sibling is there.
+extraResources:
+  - from: build/trayTemplate.png
+    to: trayTemplate.png
+  - from: build/trayTemplate@2x.png
+    to: trayTemplate@2x.png
+
 mac:
   category: public.app-category.developer-tools
   # The product name has a space in it, which download URLs would carry as %20.

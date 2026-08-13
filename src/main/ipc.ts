@@ -6,7 +6,8 @@
 
 import { ipcMain } from 'electron'
 
-import type { AddAccountInput, CodexQuotaService } from '../shared/codex-quota'
+import type { ActionOutcome, AddAccountInput, CodexQuotaService } from '../shared/codex-quota'
+import { broadcastChanged } from './shell-api'
 
 export const CHANNEL = {
   readRegistry: 'codex-quota:read-registry',
@@ -22,24 +23,36 @@ export const CHANNEL = {
   removeAccount: 'codex-quota:remove-account'
 } as const
 
+/**
+ * Registers a channel whose success changes state on disk, and tells the other
+ * windows once it has. A failed action changed nothing, so it says nothing.
+ */
+function handleMutation<A extends unknown[]>(
+  channel: string,
+  run: (...args: A) => Promise<ActionOutcome>
+): void {
+  ipcMain.handle(channel, async (event, ...args) => {
+    const outcome = await run(...(args as A))
+    broadcastChanged(event.sender.id)
+    return outcome
+  })
+}
+
 export function registerCodexQuotaIpc(service: CodexQuotaService): void {
   ipcMain.handle(CHANNEL.readRegistry, () => service.readRegistry())
   ipcMain.handle(CHANNEL.readEnvironment, () => service.readEnvironment())
   ipcMain.handle(CHANNEL.fetchQuota, (_event, account: string) => service.fetchQuota(account))
-  ipcMain.handle(CHANNEL.addAccount, (_event, input: AddAccountInput) => service.addAccount(input))
-  ipcMain.handle(CHANNEL.importActive, (_event, account: string, options?: { create?: boolean }) =>
+
+  handleMutation(CHANNEL.addAccount, (input: AddAccountInput) => service.addAccount(input))
+  handleMutation(CHANNEL.importActive, (account: string, options?: { create?: boolean }) =>
     service.importActive(account, options)
   )
-  ipcMain.handle(CHANNEL.activate, (_event, account: string, options?: { force?: boolean }) =>
+  handleMutation(CHANNEL.activate, (account: string, options?: { force?: boolean }) =>
     service.activate(account, options)
   )
-  ipcMain.handle(CHANNEL.login, (_event, account: string) => service.login(account))
-  ipcMain.handle(CHANNEL.startQuotaWindow, (_event, account: string) =>
-    service.startQuotaWindow(account)
-  )
-  ipcMain.handle(CHANNEL.logout, (_event, account: string) => service.logout(account))
-  ipcMain.handle(CHANNEL.deleteStoredAuth, (_event, account: string) =>
-    service.deleteStoredAuth(account)
-  )
-  ipcMain.handle(CHANNEL.removeAccount, (_event, account: string) => service.removeAccount(account))
+  handleMutation(CHANNEL.login, (account: string) => service.login(account))
+  handleMutation(CHANNEL.startQuotaWindow, (account: string) => service.startQuotaWindow(account))
+  handleMutation(CHANNEL.logout, (account: string) => service.logout(account))
+  handleMutation(CHANNEL.deleteStoredAuth, (account: string) => service.deleteStoredAuth(account))
+  handleMutation(CHANNEL.removeAccount, (account: string) => service.removeAccount(account))
 }

@@ -1,6 +1,17 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
 import type { AddAccountInput, CodexQuotaService } from '../shared/codex-quota'
+import type { CodexQuotaShell, ShellPreferences, TrayStatus } from '../shared/shell'
+
+const SHELL_CHANNEL = {
+  getPreferences: 'shell:get-preferences',
+  setPreferences: 'shell:set-preferences',
+  setTrayStatus: 'shell:set-tray-status',
+  hidePanel: 'shell:hide-panel',
+  openMain: 'shell:open-main',
+  changed: 'shell:changed',
+  route: 'shell:route'
+} as const
 
 const CHANNEL = {
   readRegistry: 'codex-quota:read-registry',
@@ -42,7 +53,30 @@ const service: CodexQuotaService = {
   removeAccount: (account) => invoke(CHANNEL.removeAccount, account)
 }
 
+const shell: CodexQuotaShell = {
+  getPreferences: () => invoke(SHELL_CHANNEL.getPreferences),
+  setPreferences: (changes: Partial<ShellPreferences>) =>
+    invoke(SHELL_CHANNEL.setPreferences, changes),
+  setTrayStatus: (status: TrayStatus) => invoke(SHELL_CHANNEL.setTrayStatus, status),
+  hidePanel: () => invoke(SHELL_CHANNEL.hidePanel),
+  openMain: (account?: string) => invoke(SHELL_CHANNEL.openMain, account),
+  onChanged: (listener) => subscribe(SHELL_CHANNEL.changed, () => listener()),
+  onRoute: (listener) =>
+    subscribe(SHELL_CHANNEL.route, (account) => listener((account as string | null) ?? null))
+}
+
+/**
+ * Subscriptions hand back their own removal rather than exposing `off` across
+ * the bridge, so a renderer cannot detach a listener that is not its own.
+ */
+function subscribe(channel: string, listener: (...args: unknown[]) => void): () => void {
+  const wrapped = (_event: unknown, ...args: unknown[]): void => listener(...args)
+  ipcRenderer.on(channel, wrapped)
+  return () => ipcRenderer.removeListener(channel, wrapped)
+}
+
 contextBridge.exposeInMainWorld('codexQuota', service)
+contextBridge.exposeInMainWorld('codexQuotaShell', shell)
 contextBridge.exposeInMainWorld('codexQuotaDesktop', {
   platform: process.platform
 })
