@@ -11,6 +11,12 @@ on:
 permissions:
   contents: write
 
+# Two runs for the same tag would race to create one release. Queue instead of
+# cancelling, so a rehearsal already in flight still finishes.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   macos:
     runs-on: macos-latest
