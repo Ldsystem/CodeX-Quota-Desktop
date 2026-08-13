@@ -35,5 +35,16 @@ exports.default = async function adHocSign(context) {
   }
 
   sign(app)
-  execFileSync('codesign', ['--verify', '--strict', app], { stdio: 'inherit' })
+
+  try {
+    execFileSync('codesign', ['--verify', '--strict', app], { stdio: 'inherit' })
+  } catch (error) {
+    // A rejected bundle is almost always a framework whose symlink layout did
+    // not survive being copied, and that is invisible from the error alone.
+    for (const entry of readdirSync(frameworks)) {
+      if (!entry.endsWith('.framework')) continue
+      execFileSync('ls', ['-la', join(frameworks, entry)], { stdio: 'inherit' })
+    }
+    throw error
+  }
 }
