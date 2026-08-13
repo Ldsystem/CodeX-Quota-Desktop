@@ -22,6 +22,16 @@ export default defineConfig({
         '@renderer': resolve('src/renderer/src')
       }
     },
+    build: {
+      rollupOptions: {
+        // Two surfaces, one renderer build: the workbench window and the panel
+        // the menu bar icon opens.
+        input: {
+          index: resolve('src/renderer/index.html'),
+          panel: resolve('src/renderer/panel.html')
+        }
+      }
+    },
     plugins: [react()]
   }
 })

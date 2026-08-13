@@ -7,6 +7,7 @@ import { ConfirmDialog } from './components/ConfirmDialog'
 import type { ConfirmRequest } from './components/ConfirmDialog'
 import { ToastStack } from './components/ToastStack'
 import { FixtureCodexQuotaService } from './lib/fixture-service'
+import { shell } from './lib/shell'
 import { useWorkbench } from './lib/use-workbench'
 import { AccountPage } from './views/AccountPage'
 import { EnvironmentView } from './views/EnvironmentView'
@@ -64,6 +65,16 @@ export default function App(): React.JSX.Element {
     const timer = setInterval(() => setNow(new Date()), 30_000)
     return () => clearInterval(timer)
   }, [])
+
+  // The menu bar panel acts on the same files, so a switch made there has to
+  // land here without the user thinking to refresh.
+  useEffect(() => shell.onChanged(() => bench.refreshAll()), [bench.refreshAll])
+
+  // "Open in Codex Quota" on a panel card asks for that account's page.
+  useEffect(
+    () => shell.onRoute((account) => setRoute(account ? { kind: 'account', account } : { kind: 'overview' })),
+    []
+  )
 
   const openAccount =
     route.kind === 'account'

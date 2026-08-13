@@ -1,21 +1,62 @@
+import { useEffect, useState } from 'react'
+
 import type { EnvironmentSnapshot } from '../../../shared/codex-quota'
+import type { ShellPreferences } from '../../../shared/shell'
 import { Panel } from '../components/Panel'
+import { hasShell, shell } from '../lib/shell'
 
 interface EnvironmentViewProps {
   environment: EnvironmentSnapshot | null
 }
 
 /**
- * Read-only for now. These values come from the environment the app was
- * launched with; editing them belongs to a later settings surface.
+ * Paths and settings are read-only, since they come from the environment the
+ * app was launched with. The two menu bar preferences are not: they are the
+ * only things here the app itself owns.
  */
 export function EnvironmentView({ environment }: EnvironmentViewProps): React.JSX.Element {
+  const [preferences, setPreferences] = useState<ShellPreferences | null>(null)
+
+  useEffect(() => {
+    void shell.getPreferences().then(setPreferences)
+  }, [])
+
+  const change = (changes: Partial<ShellPreferences>): void => {
+    void shell.setPreferences(changes).then(setPreferences)
+  }
+
   if (environment === null) {
     return <p className="panel__empty">Reading local state.</p>
   }
 
   return (
     <div className="panel-grid">
+      {hasShell && preferences ? (
+        <Panel title="Menu bar" subtitle="How the app behaves when its window is closed" span="wide">
+          <div className="fact-column">
+            <Toggle
+              label="Keep running in the menu bar"
+              hint="Closing this window leaves the icon and its panel available. Quit from the icon's menu."
+              checked
+              disabled
+              onChange={() => undefined}
+            />
+            <Toggle
+              label="Start at login"
+              hint="Launches straight into the menu bar, without opening this window."
+              checked={preferences.startAtLogin}
+              onChange={(next) => change({ startAtLogin: next })}
+            />
+            <Toggle
+              label="Hide the Dock icon"
+              hint="Leaves only the menu bar icon. Reopen this window from there."
+              checked={preferences.menuBarOnly}
+              onChange={(next) => change({ menuBarOnly: next })}
+            />
+          </div>
+        </Panel>
+      ) : null}
+
       <Panel title="Storage" subtitle="Where profiles and backups live" span="wide">
         <div className="path-list">
           <Path label="Storage root" value={environment.storageRoot} />
@@ -83,6 +124,31 @@ export function EnvironmentView({ environment }: EnvironmentViewProps): React.JS
         </div>
       </Panel>
     </div>
+  )
+}
+
+interface ToggleProps {
+  label: string
+  hint: string
+  checked: boolean
+  disabled?: boolean
+  onChange: (next: boolean) => void
+}
+
+function Toggle({ label, hint, checked, disabled, onChange }: ToggleProps): React.JSX.Element {
+  return (
+    <label className={`toggle${disabled ? ' toggle--fixed' : ''}`}>
+      <input
+        type="checkbox"
+        checked={checked}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.checked)}
+      />
+      <span className="toggle__text">
+        <span className="toggle__label">{label}</span>
+        <span className="toggle__hint">{hint}</span>
+      </span>
+    </label>
   )
 }
 
