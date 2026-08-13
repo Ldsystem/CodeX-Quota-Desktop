@@ -36,6 +36,9 @@ Codex Quota keeps each account's credentials in its own profile, shows every acc
 
 Closing the window does not quit the app. The icon stays, showing the headroom left on the account in use, or the best account to switch to marked with an arrow when nothing is in use. Clicking it opens a panel you can swipe through, one card per account, and switching from a card is a single click — the same guard applies as in the window, so switching under a running Codex Desktop asks first.
 
+<img src="docs/menu-bar-panel.png" alt="The menu bar panel showing one account card with its weekly meter and a switch button" width="380">
+
+
 The panel keeps reading quota while it is hidden, which is what keeps the figure beside the icon honest. Right-clicking the icon offers the window, a refresh, a start-at-login switch, and quit. Settings has the same switch plus one to hide the Dock icon entirely.
 
 ## Coming from the CLI
