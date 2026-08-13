@@ -1,105 +1,134 @@
-# Codex Quota Desktop
+<div align="center">
 
-Desktop application for managing several Codex accounts and comparing their quota at a glance. It is a full port of the `codex-quota` bash CLI into TypeScript, not a wrapper around it.
+<img src="build/icon.png" alt="Codex Quota" width="96">
 
-## Status
+# Codex Quota
 
-Working against real data. The main process reads the profiles under `~/.codex-quota/`, the live credential at `~/.codex/auth.json`, and the Codex usage API, and it performs every action the CLI does. The fixture source (`src/renderer/src/lib/fixture-service.ts`) is still there and takes over automatically when the renderer runs in a plain browser through `pnpm dev:web`, so the interface can be worked on without touching real credentials.
+**Run several Codex accounts without repeating the logout-and-login dance.**
 
-## Shape of the interface
+[![Release](https://img.shields.io/github/v/release/Ldsystem/CodeX-Quota-Desktop?color=22c55e&label=release)](https://github.com/Ldsystem/CodeX-Quota-Desktop/releases/latest)
+[![Build](https://github.com/Ldsystem/CodeX-Quota-Desktop/actions/workflows/release.yml/badge.svg)](https://github.com/Ldsystem/CodeX-Quota-Desktop/actions/workflows/release.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/platform-macOS%20arm64-lightgrey.svg)](https://github.com/Ldsystem/CodeX-Quota-Desktop/releases/latest)
 
-Two levels deep, with no side rail. The list is the navigation: open an account, act on it, come back.
+![The overview: four summary cards above one row per account, each with its quota meter](docs/overview.png)
 
-- **Overview** — how many accounts are ready to switch to, lifetime tokens, which quota resets next, and one row per account with its weekly meter.
-- **Account** — reached by opening a row. Subscription and quota, token activity, credential state, warnings, and every action for that account.
-- **Settings** — reached by the gear in the header. Paths, proxy, usage API, and the priming request settings.
+</div>
 
-The header carries the back button, what is currently running, refresh, and the gear.
+Codex Desktop signs in one account at a time. If you hold more than one subscription, switching means signing out, signing in, and finding out only afterwards whether the account you picked had any quota left.
 
-## Token activity is optional
+Codex Quota keeps each account's credentials in its own profile, shows every account's remaining quota side by side, and switches the live credential in one click — backing up what was there before it does.
 
-The CLI never read token counts, and the usage endpoint is undocumented, so lifetime tokens and the daily activity grid are modelled as optional data (`QuotaReport.tokenUsage`). When a report carries it, the overview card and the account's activity grid appear; when it is null they are simply absent, and nothing else changes. The fixture provides it so the layout can be judged — set `TOKEN_USAGE_AVAILABLE` to `false` in the fixture to see the interface without it.
+## Features
 
-## Reads and work are asynchronous
+- **Every account's quota at a glance.** Plan, remaining percentage, reset time and available reset credits, fetched per account in the background so nothing blocks.
+- **One-click switching.** Move the live Codex credential to any account, with the previous one backed up automatically.
+- **Honest state.** If something moved `~/.codex/auth.json` outside the app, that account reads as drifted rather than pretending to be live.
+- **Token history.** Lifetime tokens, daily activity, streaks and longest run, straight from your Codex profile.
+- **Quota window priming.** Start an account's window from a moment you choose with one minimal billed request, instead of waiting for whenever you next happen to use it.
+- **Full account lifecycle.** Add, sign in, sign out, import the live credential, delete stored credentials, remove accounts.
 
-Nothing blocks the interface:
+> [!NOTE]
+> This is a full port of the [CodeX-Quota](https://github.com/Ldsystem/CodeX-Quota) bash CLI into TypeScript. It reads and writes the same files, so the two can be used interchangeably on the same machine.
 
-- The registry read is local and paints immediately.
-- Each account's subscription and usage is fetched in its own background job. Rows fill in as answers arrive, and a failed fetch offers a retry without affecting the others.
-- Actions run per account. Several can be in flight at once; only the account running a job has its actions disabled, and the header says what is currently running.
+## Coming from the CLI
 
-## Capabilities covered by the interface
+Every command has a counterpart in the interface, with two exceptions worth knowing before you switch.
 
-Every entry point of the CLI has a counterpart in the UI:
-
-| CLI command | Interface |
+| CLI command | Where it went |
 | --- | --- |
-| `status`, `list` | Account rows with the weekly meter, plan, reset time, available resets, and warnings |
-| `add` | Add account dialog with name validation and profile mode choice |
+| `status`, `list` | The account rows, with meter, plan, reset time and warnings |
+| `add`, `remove` | Add account dialog; remove from the account page, behind a confirmation |
+| `login`, `logout` | Sign in and sign out on the account page |
+| `activate` | Switch Codex Desktop, guarded by the running-app check and the backup |
 | `import-active` | Import the live credential, per account |
-| `activate` | Switch Codex Desktop, guarded by the running-app check and the mandatory backup |
-| `login` | Sign in to an account |
-| `logout` | Sign out, behind a confirmation |
-| `delete-auth` | Delete stored credential, restricted to Desktop-switching profiles |
-| `remove` | Remove account, behind a confirmation |
-| `start-5h` | "Start the quota window": one minimal billed request so the window counts from a chosen moment |
+| `delete-auth` | Delete stored credential, for Desktop-switching profiles |
+| `start-5h` | Start the quota window |
+| `use` | Not implemented |
 
-Two deliberate departures from the CLI:
+Codex no longer enforces a rolling 5-hour limit, so only the subscription window is tracked; `start-5h` keeps its real purpose, priming that window, under a name not tied to a bucket that no longer exists. Running an arbitrary command under a profile home, which `use` did, has no interface counterpart — keep the CLI around if you need it.
 
-- Codex no longer enforces a rolling 5-hour limit, so only the weekly window is tracked. The command that used to be `start-5h` keeps its real purpose, priming the window, under a name that is not tied to a bucket that no longer exists.
-- `use` (running an arbitrary command under a profile home) has no interface counterpart yet.
+## Install
 
-## Layout
+Download the latest DMG from the [releases page](https://github.com/Ldsystem/CodeX-Quota-Desktop/releases/latest), open it, and drag **Codex Quota** to Applications.
 
-```
-src/
-  main/        Electron main process
-  preload/     Context bridge
-  shared/      Domain model and the CodexQuotaService contract
-  renderer/    React interface
-```
-
-## The codex command
-
-Signing in, signing out, and priming a quota window all spawn the real `codex`. Nothing is bundled: the app uses the one already installed, looking at `PATH` first and then at the usual install directories, because an app started from Finder inherits only `/usr/bin:/bin:/usr/sbin:/sbin` and never sees a shell profile. Set `CODEX_QUOTA_CODEX_BIN` to choose a specific one. Settings shows which command was found.
-
-## Commands
-
-Node 22 or newer. Node 20 cannot load `undici@8`, which one test file needs; the packaged app is unaffected because Electron embeds its own Node.
-
-```bash
-pnpm install
-pnpm dev        # Electron with hot reload
-pnpm dev:web    # Renderer only, in a browser at http://localhost:5273
-pnpm test
-pnpm typecheck
-pnpm build
-pnpm dist       # Unsigned macOS arm64 .dmg and .zip in release/
-```
-
-## Installing the local build
-
-```bash
-pnpm dist
-open release                      # then drag Codex Quota.app to /Applications
-```
-
-The build is ad-hoc signed, not notarised, and has no Developer ID. That is enough for macOS to start it locally. A copy that travels through a browser, AirDrop, or another Mac arrives quarantined, and Gatekeeper will refuse it until it is opened once with right-click → Open, or cleared with:
+The build is signed ad-hoc rather than with a Developer ID, so a downloaded copy arrives quarantined and Gatekeeper will refuse it until you either right-click → Open once, or clear the flag:
 
 ```bash
 xattr -dr com.apple.quarantine "/Applications/Codex Quota.app"
 ```
 
-There is no auto-update. Run `pnpm dist` again and replace the app.
+> [!IMPORTANT]
+> Apple silicon only, and there is no auto-update — download a newer DMG to upgrade.
 
-## Publishing a release
+## Requirements
 
-`.github/workflows/release.yml` builds on a GitHub-hosted Apple silicon runner and needs no secrets: the bundle is ad-hoc signed by the same `afterPack` hook used locally, and the run's own token publishes the release.
+- macOS on Apple silicon.
+- Codex Desktop, for the credential this app switches.
+- The `codex` CLI on your `PATH`, used for signing in and out and for priming a quota window. Nothing is bundled; the app runs the install you already trust.
+
+## How it works
+
+Each account gets a profile directory holding its own `auth.json`. Switching copies that credential into the location Codex Desktop reads, after backing up the credential already there.
+
+```
+~/.codex-quota/
+  accounts.txt          the accounts you have registered
+  accounts/<name>/      per-account auth.json and profile.json
+  backups/              the live credential as it was before each switch
+  active.json           which account the live credential belongs to
+~/.codex/auth.json      the credential Codex Desktop actually reads
+```
+
+Quota comes from the same endpoints Codex itself uses, authenticated with each account's own token: the usage endpoint for the live allowance, and the profile endpoint for token history. Expired access tokens are refreshed on read.
+
+> [!TIP]
+> Codex Desktop caches the credential at startup. After switching, restart it before expecting the new account to be in effect.
+
+## Configuration
+
+Everything has a working default; these are the escape hatches.
+
+| Variable | Purpose |
+| --- | --- |
+| `CODEX_QUOTA_CODEX_BIN` | The `codex` to run, when the search finds the wrong one or none |
+| `CQ_HTTP_PROXY` | Proxy for API calls; `off` disables the default `http://127.0.0.1:7897` |
+| `CQ_QUOTA_USAGE_URL` | Override the usage endpoint |
+| `CQ_START_5H_MODEL` | Model used to prime a quota window (default `gpt-5.4-mini`) |
+| `CQ_START_5H_REASONING_EFFORT` | Reasoning effort for that request (default `low`) |
+
+Settings shows the resolved paths, the proxy, and which `codex` was found.
+
+## Development
+
+Node 22 or newer, and pnpm. Node 20 cannot load `undici@8`, which the tests need; the packaged app is unaffected because Electron embeds its own Node.
 
 ```bash
-gh workflow run Release          # rehearsal: builds and uploads a workflow artifact
-pnpm version patch               # or edit package.json, then commit
+pnpm install
+pnpm dev        # Electron with hot reload
+pnpm dev:web    # Renderer only, in a browser, on fixture data
+pnpm test
+pnpm typecheck
+pnpm dist       # arm64 .dmg and .zip in release/
+```
+
+`pnpm dev:web` runs the interface against an in-memory fixture service, so layout and states can be worked on without touching real credentials.
+
+```
+src/
+  main/        Electron main process: files, HTTP, spawning codex
+  preload/     Context bridge
+  shared/      Domain model and the service contract
+  renderer/    React interface
+```
+
+## Releasing
+
+Pushing a `v*` tag builds on a GitHub-hosted Apple silicon runner and publishes the DMG and zip to a release. No secrets are involved: the bundle is signed ad-hoc and the run's own token creates the release.
+
+```bash
+gh workflow run Release   # rehearse: builds and uploads an artifact, publishes nothing
 git tag v0.1.1 && git push origin v0.1.1
 ```
 
-A tag whose version disagrees with `package.json` fails the run before anything is built, and the job refuses to continue if the runner is not arm64 or if the packed bundle has no valid signature. Tag runs publish `CodexQuota-<version>-arm64.dmg` and the matching `.zip` to the release page, with the quarantine instructions in the body.
+The job stops before publishing anything if the runner is not arm64, if the tag disagrees with the version in `package.json`, or if the packed bundle's signature does not verify.
