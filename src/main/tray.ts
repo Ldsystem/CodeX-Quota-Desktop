@@ -16,6 +16,7 @@ export interface TrayHandlers {
   onToggle(bounds: Rectangle): void
   onOpenMain(): void
   onRefresh(): void
+  onToggleAutoSync(next: boolean): void
   onToggleStartAtLogin(next: boolean): void
   onQuit(): void
 }
@@ -42,6 +43,14 @@ function buildMenu(handlers: TrayHandlers, preferences: ShellPreferences): Menu 
     { label: 'Refresh accounts', click: () => handlers.onRefresh() },
     { type: 'separator' },
     {
+      label: 'Automatic sync',
+      type: 'checkbox',
+      toolTip:
+        'Re-reads usage every couple of minutes, and starts a quota window that never started so its reset comes sooner.',
+      checked: preferences.autoSync,
+      click: (item) => handlers.onToggleAutoSync(item.checked)
+    },
+    {
       label: 'Start at login',
       type: 'checkbox',
       checked: preferences.startAtLogin,
@@ -61,7 +70,7 @@ export function createTray(handlers: TrayHandlers): TrayController {
   const tray = new Tray(image)
   tray.setToolTip('Codex Quota')
 
-  let preferences: ShellPreferences = { startAtLogin: false, menuBarOnly: false }
+  let preferences: ShellPreferences = { startAtLogin: false, menuBarOnly: false, autoSync: true }
   let menu = buildMenu(handlers, preferences)
 
   // The menu is popped up explicitly rather than attached with setContextMenu:

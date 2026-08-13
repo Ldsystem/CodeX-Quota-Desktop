@@ -12,6 +12,11 @@ export interface ShellPreferences {
   startAtLogin: boolean
   /** Hide the Dock icon, leaving only the menu bar. */
   menuBarOnly: boolean
+  /**
+   * Re-read usage on a timer, and start a quota window that never started so
+   * its week begins counting now. Off means the app only ever reads when asked.
+   */
+  autoSync: boolean
 }
 
 export interface TrayStatus {
@@ -32,4 +37,10 @@ export interface CodexQuotaShell {
   onChanged(listener: () => void): () => void
   /** Fires when another surface asks this window to show an account. */
   onRoute(listener: (account: string | null) => void): () => void
+  /**
+   * Fires when preferences change anywhere. The switch appears in the window,
+   * in the menu, and governs the panel's timer, so no surface may keep its own
+   * copy of the answer.
+   */
+  onPreferences(listener: (preferences: ShellPreferences) => void): () => void
 }

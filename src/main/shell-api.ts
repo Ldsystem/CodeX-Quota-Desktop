@@ -18,7 +18,8 @@ export const SHELL_CHANNEL = {
   hidePanel: 'shell:hide-panel',
   openMain: 'shell:open-main',
   changed: 'shell:changed',
-  route: 'shell:route'
+  route: 'shell:route',
+  preferences: 'shell:preferences'
 } as const
 
 export interface ShellHost {
@@ -58,5 +59,16 @@ export function broadcastChanged(exceptWebContentsId?: number): void {
   for (const window of BrowserWindow.getAllWindows()) {
     if (window.webContents.id === exceptWebContentsId) continue
     window.webContents.send(SHELL_CHANNEL.changed)
+  }
+}
+
+/**
+ * Preferences go to every window including the one that changed them. The
+ * switch is drawn in three places and one of them decides whether the panel's
+ * timer runs at all, so a single answer has to reach all of them.
+ */
+export function broadcastPreferences(preferences: ShellPreferences): void {
+  for (const window of BrowserWindow.getAllWindows()) {
+    window.webContents.send(SHELL_CHANNEL.preferences, preferences)
   }
 }

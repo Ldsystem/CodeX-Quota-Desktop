@@ -22,7 +22,9 @@ export function TokenActivity({ usage, weeks = 52 }: TokenActivityProps): React.
 
   return (
     <div className="activity">
-      <div className="activity__scroll">
+      {/* The column count drives the layout, so the grid is told how many weeks
+          it is drawing rather than inferring it from a cell size. */}
+      <div className="activity__scroll" style={{ '--weeks': weeks } as React.CSSProperties}>
         <div className="activity__grid" role="img" aria-label={activityLabel(usage)}>
           {cells.map((cell) => (
             <span

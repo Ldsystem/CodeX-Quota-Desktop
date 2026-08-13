@@ -10,7 +10,8 @@ const SHELL_CHANNEL = {
   hidePanel: 'shell:hide-panel',
   openMain: 'shell:open-main',
   changed: 'shell:changed',
-  route: 'shell:route'
+  route: 'shell:route',
+  preferences: 'shell:preferences'
 } as const
 
 const CHANNEL = {
@@ -62,7 +63,11 @@ const shell: CodexQuotaShell = {
   openMain: (account?: string) => invoke(SHELL_CHANNEL.openMain, account),
   onChanged: (listener) => subscribe(SHELL_CHANNEL.changed, () => listener()),
   onRoute: (listener) =>
-    subscribe(SHELL_CHANNEL.route, (account) => listener((account as string | null) ?? null))
+    subscribe(SHELL_CHANNEL.route, (account) => listener((account as string | null) ?? null)),
+  onPreferences: (listener) =>
+    subscribe(SHELL_CHANNEL.preferences, (preferences) =>
+      listener(preferences as ShellPreferences)
+    )
 }
 
 /**

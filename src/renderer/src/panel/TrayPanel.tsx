@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { CodexQuotaService } from '../../../shared/codex-quota'
 import { trayTitle } from '../../../shared/codex-quota'
 import { shell } from '../lib/shell'
+import { useAutoSync } from '../lib/use-auto-sync'
+import { usePreferences } from '../lib/use-preferences'
 import { useWorkbench } from '../lib/use-workbench'
 import { AccountCard } from './AccountCard'
 
@@ -20,6 +22,8 @@ interface TrayPanelProps {
  */
 export function TrayPanel({ service }: TrayPanelProps): React.JSX.Element {
   const bench = useWorkbench(service)
+  const { preferences, update } = usePreferences()
+  useAutoSync(bench, preferences.autoSync)
   const [now, setNow] = useState(() => new Date())
   const [index, setIndex] = useState(0)
   const deck = useRef<HTMLDivElement>(null)

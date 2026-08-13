@@ -1,9 +1,7 @@
-import { useEffect, useState } from 'react'
-
 import type { EnvironmentSnapshot } from '../../../shared/codex-quota'
-import type { ShellPreferences } from '../../../shared/shell'
 import { Panel } from '../components/Panel'
-import { hasShell, shell } from '../lib/shell'
+import { hasShell } from '../lib/shell'
+import { usePreferences } from '../lib/use-preferences'
 
 interface EnvironmentViewProps {
   environment: EnvironmentSnapshot | null
@@ -15,15 +13,7 @@ interface EnvironmentViewProps {
  * only things here the app itself owns.
  */
 export function EnvironmentView({ environment }: EnvironmentViewProps): React.JSX.Element {
-  const [preferences, setPreferences] = useState<ShellPreferences | null>(null)
-
-  useEffect(() => {
-    void shell.getPreferences().then(setPreferences)
-  }, [])
-
-  const change = (changes: Partial<ShellPreferences>): void => {
-    void shell.setPreferences(changes).then(setPreferences)
-  }
+  const { preferences, update: change } = usePreferences()
 
   if (environment === null) {
     return <p className="panel__empty">Reading local state.</p>
@@ -31,7 +21,36 @@ export function EnvironmentView({ environment }: EnvironmentViewProps): React.JS
 
   return (
     <div className="panel-grid">
-      {hasShell && preferences ? (
+      <Panel
+        title="Automatic sync"
+        subtitle="What the app does on its own between your visits"
+        span="wide"
+      >
+        <div className="fact-column">
+          <Toggle
+            label="Keep accounts in sync automatically"
+            hint="Re-reads usage every two minutes while anything is still undecided, then every ten once all windows are known to be counting."
+            checked={preferences.autoSync}
+            onChange={(next) => change({ autoSync: next })}
+          />
+          <p className="panel__note">
+            A weekly allowance does not begin when the week does. It begins with the first billed
+            request, and until then the reset time the API reports simply slides along with the
+            clock. Sampling it twice tells the difference: a reset that moved with the clock belongs
+            to a window nobody has started, and one that held still is already counting down.
+          </p>
+          <p className="panel__note">
+            When this switch is on and an account&rsquo;s window has not started, the app sends the
+            same single minimal request the <strong>Start window</strong> button sends, so the week
+            begins now rather than whenever that account next happens to be used, and its reset
+            arrives that much sooner. It costs a negligible number of tokens, it is announced by a
+            notice like any other action, and it is not retried for six hours if it fails. Turn the
+            switch off and nothing is read or spent unless you ask for it.
+          </p>
+        </div>
+      </Panel>
+
+      {hasShell ? (
         <Panel title="Menu bar" subtitle="How the app behaves when its window is closed" span="wide">
           <div className="fact-column">
             <Toggle
@@ -84,7 +103,8 @@ export function EnvironmentView({ environment }: EnvironmentViewProps): React.JS
           </div>
           <p className="panel__note">
             Switching accounts while Desktop runs writes new credentials underneath it. Restart
-            Desktop afterwards for the change to take effect.
+            Desktop afterwards for the change to take effect. Codex now ships inside the ChatGPT
+            app rather than as a separate one, so either counts as running.
           </p>
         </div>
       </Panel>

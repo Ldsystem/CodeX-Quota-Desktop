@@ -27,6 +27,7 @@ Codex Quota keeps each account's credentials in its own profile, shows every acc
 - **Honest state.** If something moved `~/.codex/auth.json` outside the app, that account reads as drifted rather than pretending to be live.
 - **Token history.** Lifetime tokens, daily activity, streaks and longest run, straight from your Codex profile.
 - **Quota window priming.** Start an account's window from a moment you choose with one minimal billed request, instead of waiting for whenever you next happen to use it.
+- **Automatic sync.** One switch keeps usage current in the background and starts a window that never started, so its reset arrives sooner without you thinking about it.
 - **Full account lifecycle.** Add, sign in, sign out, import the live credential, delete stored credentials, remove accounts.
 
 > [!NOTE]
@@ -39,7 +40,27 @@ Closing the window does not quit the app. The icon stays, showing the headroom l
 <img src="docs/menu-bar-panel.png" alt="The menu bar panel showing one account card with its weekly meter and a switch button" width="380">
 
 
-The panel keeps reading quota while it is hidden, which is what keeps the figure beside the icon honest. Right-clicking the icon offers the window, a refresh, a start-at-login switch, and quit. Settings has the same switch plus one to hide the Dock icon entirely.
+The panel keeps reading quota while it is hidden, which is what keeps the figure beside the icon honest. Right-clicking the icon offers the window, a refresh, the automatic sync switch, a start-at-login switch, and quit. Settings has the same switches plus one to hide the Dock icon entirely.
+
+## Automatic sync
+
+The **Auto** switch in the window header, mirrored in the menu bar icon's menu, governs everything the app does on its own. It is on by default, and it does two things.
+
+The first is refreshing. Usage is re-read on a timer so the figure beside the menu bar icon means something when you glance at it, rather than dating from whenever the app last happened to be opened.
+
+The second follows from the first, and matters more. A weekly allowance does not begin when the week begins — it begins with the first billed request. Until something starts it, the usage API reports a reset time that simply slides along with the clock, always the same distance away. Sampling that reset time twice tells the two states apart: a reset that moved along with the clock belongs to a window nobody has started, and one that held still is already counting down towards a fixed moment. That check costs nothing extra, because it reads the samples the refresh already collected.
+
+When an account's window turns out never to have started, the app sends the same single minimal request the **Start window** button sends. The week then begins now instead of whenever that account is next picked up, and its reset arrives that much sooner — which is the whole point, since an account whose window has not started is an account whose spent allowance is not yet on its way back. It is easy to leave an account sitting in that state for days without noticing.
+
+The safeguards are worth stating plainly, because this spends money quietly:
+
+- It only ever happens with the switch on, and only for an account that has a stored credential to bill.
+- It costs one minimal request, at the model and effort shown in Settings.
+- It is announced with the same notice as any action you took yourself, and it appears in the panel too.
+- One account at a time, and never retried within six hours, so a window that refuses to start cannot become a loop.
+- Sampling runs every two minutes only while some window is still undecided or waiting; once every window is known to be counting it drops to every ten.
+
+Turn the switch off and the app reads nothing and spends nothing unless you ask it to.
 
 ## Coming from the CLI
 
@@ -74,7 +95,7 @@ xattr -dr com.apple.quarantine "/Applications/Codex Quota.app"
 ## Requirements
 
 - macOS on Apple silicon.
-- Codex Desktop, for the credential this app switches.
+- Codex Desktop, for the credential this app switches. Codex now ships inside the ChatGPT app rather than as its own app; either one counts, and the running check looks for both.
 - The `codex` CLI on your `PATH`, used for signing in and out and for priming a quota window. Nothing is bundled; the app runs the install you already trust.
 
 ## How it works

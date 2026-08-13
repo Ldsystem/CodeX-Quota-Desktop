@@ -17,7 +17,12 @@ import { registerCodexQuotaIpc } from './ipc'
 import { createPanel } from './panel'
 import type { Panel } from './panel'
 import { readPreferences, writePreferences } from './preferences'
-import { SHELL_CHANNEL, broadcastChanged, registerShellIpc } from './shell-api'
+import {
+  SHELL_CHANNEL,
+  broadcastChanged,
+  broadcastPreferences,
+  registerShellIpc
+} from './shell-api'
 import { createTray } from './tray'
 import type { TrayController } from './tray'
 
@@ -87,6 +92,7 @@ function openMain(account: string | null): void {
 
 function applyPreferences(preferences: ShellPreferences): void {
   tray?.setPreferences(preferences)
+  broadcastPreferences(preferences)
 
   if (process.platform !== 'darwin') return
   if (preferences.menuBarOnly) {
@@ -117,6 +123,9 @@ app.whenReady().then(async () => {
     onToggle: (bounds) => panel?.toggle(bounds),
     onOpenMain: () => openMain(null),
     onRefresh: () => broadcastChanged(),
+    onToggleAutoSync: (next) => {
+      void writePreferences(storageRoot, { autoSync: next }).then(applyPreferences)
+    },
     onToggleStartAtLogin: (next) => {
       void writePreferences(storageRoot, { startAtLogin: next }).then(applyPreferences)
     },

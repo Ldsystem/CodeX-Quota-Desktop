@@ -14,6 +14,8 @@ interface AppHeaderProps {
   jobs: RunningJob[]
   now: Date
   showAddAccount: boolean
+  autoSync: boolean
+  onToggleAutoSync: (next: boolean) => void
   onRefresh: () => void
   onAddAccount: () => void
   onOpenSettings: () => void
@@ -28,6 +30,8 @@ export function AppHeader({
   jobs,
   now,
   showAddAccount,
+  autoSync,
+  onToggleAutoSync,
   onRefresh,
   onAddAccount,
   onOpenSettings
@@ -71,6 +75,23 @@ export function AppHeader({
       </div>
 
       <div className="header__tools">
+        <button
+          type="button"
+          className={`switch${autoSync ? ' switch--on' : ''}`}
+          role="switch"
+          aria-checked={autoSync}
+          onClick={() => onToggleAutoSync(!autoSync)}
+          title={
+            autoSync
+              ? 'Automatic sync is on: usage is re-read on a timer, and a quota window that never started is started for you so its reset comes sooner. Details in Settings.'
+              : 'Automatic sync is off: nothing is read or spent unless you ask for it.'
+          }
+        >
+          <span className="switch__track" aria-hidden="true">
+            <span className="switch__knob" />
+          </span>
+          Auto
+        </button>
         <button type="button" className="button button--icon" onClick={onRefresh} title="Re-read everything">
           <ArrowsClockwise size={16} weight="bold" />
           <span className="visually-hidden">Refresh</span>

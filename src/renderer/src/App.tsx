@@ -8,6 +8,7 @@ import type { ConfirmRequest } from './components/ConfirmDialog'
 import { ToastStack } from './components/ToastStack'
 import { FixtureCodexQuotaService } from './lib/fixture-service'
 import { shell } from './lib/shell'
+import { usePreferences } from './lib/use-preferences'
 import { useWorkbench } from './lib/use-workbench'
 import { AccountPage } from './views/AccountPage'
 import { EnvironmentView } from './views/EnvironmentView'
@@ -54,6 +55,7 @@ const CONFIRMATIONS: Partial<
 
 export default function App(): React.JSX.Element {
   const bench = useWorkbench(service)
+  const { preferences, update: updatePreferences } = usePreferences()
   const [route, setRoute] = useState<Route>({ kind: 'overview' })
   const [addOpen, setAddOpen] = useState(false)
   const [addSubmitting, setAddSubmitting] = useState(false)
@@ -145,6 +147,8 @@ export default function App(): React.JSX.Element {
         jobs={bench.jobs}
         now={now}
         showAddAccount={route.kind === 'overview'}
+        autoSync={preferences.autoSync}
+        onToggleAutoSync={(next) => updatePreferences({ autoSync: next })}
         onRefresh={bench.refreshAll}
         onAddAccount={() => setAddOpen(true)}
         onOpenSettings={() => setRoute({ kind: 'environment' })}

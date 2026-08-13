@@ -7,19 +7,27 @@
 import type { CodexQuotaShell, ShellPreferences } from '../../../shared/shell'
 
 function stub(): CodexQuotaShell {
-  let preferences: ShellPreferences = { startAtLogin: false, menuBarOnly: false }
+  let preferences: ShellPreferences = { startAtLogin: false, menuBarOnly: false, autoSync: true }
+  let listeners: Array<(next: ShellPreferences) => void> = []
 
   return {
     getPreferences: async () => preferences,
     setPreferences: async (changes) => {
       preferences = { ...preferences, ...changes }
+      for (const listener of listeners) listener(preferences)
       return preferences
     },
     setTrayStatus: async () => undefined,
     hidePanel: async () => undefined,
     openMain: async () => undefined,
     onChanged: () => () => undefined,
-    onRoute: () => () => undefined
+    onRoute: () => () => undefined,
+    onPreferences: (listener) => {
+      listeners = [...listeners, listener]
+      return () => {
+        listeners = listeners.filter((entry) => entry !== listener)
+      }
+    }
   }
 }
 
