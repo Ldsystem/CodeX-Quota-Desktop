@@ -23,7 +23,7 @@ interface TrayPanelProps {
 export function TrayPanel({ service }: TrayPanelProps): React.JSX.Element {
   const bench = useWorkbench(service)
   const { preferences, update } = usePreferences()
-  useAutoSync(bench, preferences.autoSync)
+  useAutoSync(bench, preferences.autoSync, { prime: true })
   const [now, setNow] = useState(() => new Date())
   const [index, setIndex] = useState(0)
   const deck = useRef<HTMLDivElement>(null)

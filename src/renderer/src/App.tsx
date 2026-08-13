@@ -8,7 +8,9 @@ import type { ConfirmRequest } from './components/ConfirmDialog'
 import { ToastStack } from './components/ToastStack'
 import { FixtureCodexQuotaService } from './lib/fixture-service'
 import { shell } from './lib/shell'
+import { useAutoSync } from './lib/use-auto-sync'
 import { usePreferences } from './lib/use-preferences'
+import { useVisible } from './lib/use-visible'
 import { useWorkbench } from './lib/use-workbench'
 import { AccountPage } from './views/AccountPage'
 import { EnvironmentView } from './views/EnvironmentView'
@@ -56,6 +58,10 @@ const CONFIRMATIONS: Partial<
 export default function App(): React.JSX.Element {
   const bench = useWorkbench(service)
   const { preferences, update: updatePreferences } = usePreferences()
+  const visible = useVisible()
+  // On screen only: the panel keeps the menu bar figure moving when this window
+  // is closed, and it is the surface allowed to start a window on your behalf.
+  useAutoSync(bench, preferences.autoSync && visible)
   const [route, setRoute] = useState<Route>({ kind: 'overview' })
   const [addOpen, setAddOpen] = useState(false)
   const [addSubmitting, setAddSubmitting] = useState(false)

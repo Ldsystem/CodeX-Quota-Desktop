@@ -1,16 +1,18 @@
 /**
  * The background sync, and the one thing derived from it.
  *
- * Only the panel runs this. It is the window that outlives the workbench, so it
- * is the only surface that can promise the menu bar figure keeps moving while
- * everything else is closed. Running it in both windows would double every
- * request for no extra freshness.
+ * There is a single timer per window. Each pass re-reads what the workbench
+ * already knows how to read; the question of whether an account's quota window
+ * ever started is answered from those readings rather than from any traffic of
+ * its own, and starting one goes through the ordinary action path so it
+ * surfaces as a toast instead of happening invisibly.
  *
- * There is a single timer. Each pass re-reads what the workbench already knows
- * how to read; the question of whether an account's quota window ever started
- * is answered from those readings rather than from any traffic of its own, and
- * starting one goes through the ordinary action path so it surfaces as a toast
- * instead of happening invisibly.
+ * The panel syncs whether or not anyone is looking, because it feeds the menu
+ * bar figure and outlives the workbench. The workbench syncs only while its
+ * window is on screen, which costs a duplicate read for as long as someone is
+ * watching and nothing at all the rest of the time. Priming belongs to the
+ * panel alone: two surfaces reaching the same conclusion should not mean the
+ * account is billed twice.
  */
 
 import { useEffect, useRef, useState } from 'react'
@@ -24,7 +26,17 @@ import {
 import type { WindowSample, WindowState } from '../../../shared/auto-sync'
 import type { WorkbenchState } from './use-workbench'
 
-export function useAutoSync(bench: WorkbenchState, enabled: boolean): Record<string, WindowState> {
+export interface AutoSyncOptions {
+  /** Whether this surface may start a window it finds unstarted. */
+  prime?: boolean
+}
+
+export function useAutoSync(
+  bench: WorkbenchState,
+  enabled: boolean,
+  options: AutoSyncOptions = {}
+): Record<string, WindowState> {
+  const prime = options.prime ?? false
   const [states, setStates] = useState<Record<string, WindowState>>({})
   const samples = useRef<Record<string, WindowSample>>({})
   const primedAt = useRef<Record<string, number>>({})
@@ -87,7 +99,7 @@ export function useAutoSync(bench: WorkbenchState, enabled: boolean): Record<str
   }, [enabled, states])
 
   useEffect(() => {
-    if (!enabled) return
+    if (!enabled || !prime) return
 
     const now = Date.now()
     // One per pass. Several accounts starting their windows at once would be a
@@ -106,7 +118,7 @@ export function useAutoSync(bench: WorkbenchState, enabled: boolean): Record<str
 
     primedAt.current[candidate.account] = now
     latest.current.runAction('start-window', candidate.account)
-  }, [enabled, states])
+  }, [enabled, prime, states])
 
   return states
 }
