@@ -300,6 +300,35 @@ export function isReadyToSwitch(account: AccountView): boolean {
   )
 }
 
+/**
+ * The text beside the menu bar icon.
+ *
+ * It answers "how much is left on what I am using", so it reports the account
+ * in use. With nothing in use there is no such figure, and the best account to
+ * switch to is shown instead, marked so the two can never be confused. An
+ * unread quota yields no text at all: the icon alone is better than a
+ * placeholder that looks like a measurement.
+ */
+export function trayTitle(accounts: readonly AccountView[]): string {
+  const live = accounts.find((account) => account.active === 'yes')
+  if (live) {
+    const percent = readPercentLeft(live)
+    return percent === null ? '' : `${percent}%`
+  }
+
+  const best = accounts
+    .filter(isReadyToSwitch)
+    .map(readPercentLeft)
+    .filter((percent): percent is number => percent !== null)
+    .reduce<number | null>((most, percent) => (most === null || percent > most ? percent : most), null)
+
+  return best === null ? '' : `↑${best}%`
+}
+
+function readPercentLeft(account: AccountView): number | null {
+  return account.quota.status === 'ready' ? quotaPercentLeft(account.quota.report.window) : null
+}
+
 export interface ActionAvailability {
   enabled: boolean
   /** Why the action is unavailable, or the caution to show before running it. */
