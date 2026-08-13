@@ -31,7 +31,9 @@ mac:
   icon: build/icon.png
   darkModeSupport: true
   # No Developer ID here. The bundle is ad-hoc signed by the afterPack hook,
-  # which is the minimum LaunchServices needs to start an arm64 app.
+  # which is the minimum LaunchServices needs to start an arm64 app. Setting
+  # this to "-" instead is not equivalent: electron-builder 25 looks that name
+  # up in the keychain, finds nothing, and skips signing entirely.
   identity: null
   # The app reads and writes ~/.codex and ~/.codex-quota and spawns `codex`,
   # none of which survives the hardened runtime without an entitlements file

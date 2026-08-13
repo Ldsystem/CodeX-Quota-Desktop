@@ -1,4 +1,5 @@
 const { execFileSync } = require('node:child_process')
+const { existsSync, readdirSync } = require('node:fs')
 const { join } = require('node:path')
 
 /**
@@ -9,11 +10,30 @@ const { join } = require('node:path')
  * all while running the binary by hand still works. This is not a Gatekeeper
  * credential and does not replace a Developer ID. electron-builder cannot do it
  * itself, because it looks `identity` up in the keychain and `-` is not there.
+ *
+ * Signing runs inside out rather than through `--deep`, which intermittently
+ * fails on `Electron Framework.framework` with "bundle format is ambiguous":
+ * the same commit signed cleanly on one runner and not on the next. A framework
+ * is signed at its versioned directory, which is the form codesign cannot
+ * misread.
  */
+function sign(target) {
+  execFileSync('codesign', ['--force', '--sign', '-', target], { stdio: 'inherit' })
+}
+
 exports.default = async function adHocSign(context) {
   if (context.electronPlatformName !== 'darwin') return
 
   const app = join(context.appOutDir, `${context.packager.appInfo.productFilename}.app`)
-  execFileSync('codesign', ['--force', '--deep', '--sign', '-', app], { stdio: 'inherit' })
+  const frameworks = join(app, 'Contents', 'Frameworks')
+
+  if (existsSync(frameworks)) {
+    for (const entry of readdirSync(frameworks)) {
+      const target = join(frameworks, entry)
+      sign(entry.endsWith('.framework') ? join(target, 'Versions', 'A') : target)
+    }
+  }
+
+  sign(app)
   execFileSync('codesign', ['--verify', '--strict', app], { stdio: 'inherit' })
 }
