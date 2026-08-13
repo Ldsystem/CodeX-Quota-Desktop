@@ -35,10 +35,14 @@ jobs:
       # Reads the pinned version from package.json's packageManager field.
       - uses: pnpm/action-setup@v4
 
+      # Deliberately uncached. Restoring the pnpm store replays Electron's
+      # postinstall from cached output instead of extracting the download, and
+      # that copy flattens the symlinks inside Electron Framework.framework.
+      # codesign then calls the bundle ambiguous and refuses to verify it, so
+      # the minute this saves costs the release its signature.
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: pnpm
 
       - run: pnpm install --frozen-lockfile
 
