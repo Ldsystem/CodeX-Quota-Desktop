@@ -21,6 +21,8 @@ files:
 
 mac:
   category: public.app-category.developer-tools
+  # The product name has a space in it, which download URLs would carry as %20.
+  artifactName: CodexQuota-${version}-arm64.${ext}
   target:
     - target: dmg
       arch: arm64
@@ -37,7 +39,6 @@ mac:
   hardenedRuntime: false
 
 dmg:
-  artifactName: ${productName}-${version}-arm64.${ext}
   title: ${productName} ${version}
 
 nsis: null

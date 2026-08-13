@@ -65,6 +65,8 @@ Signing in, signing out, and priming a quota window all spawn the real `codex`. 
 
 ## Commands
 
+Node 22 or newer. Node 20 cannot load `undici@8`, which one test file needs; the packaged app is unaffected because Electron embeds its own Node.
+
 ```bash
 pnpm install
 pnpm dev        # Electron with hot reload
@@ -89,3 +91,15 @@ xattr -dr com.apple.quarantine "/Applications/Codex Quota.app"
 ```
 
 There is no auto-update. Run `pnpm dist` again and replace the app.
+
+## Publishing a release
+
+`.github/workflows/release.yml` builds on a GitHub-hosted Apple silicon runner and needs no secrets: the bundle is ad-hoc signed by the same `afterPack` hook used locally, and the run's own token publishes the release.
+
+```bash
+gh workflow run Release          # rehearsal: builds and uploads a workflow artifact
+pnpm version patch               # or edit package.json, then commit
+git tag v0.1.1 && git push origin v0.1.1
+```
+
+A tag whose version disagrees with `package.json` fails the run before anything is built, and the job refuses to continue if the runner is not arm64 or if the packed bundle has no valid signature. Tag runs publish `CodexQuota-<version>-arm64.dmg` and the matching `.zip` to the release page, with the quarantine instructions in the body.

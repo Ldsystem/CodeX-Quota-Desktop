@@ -6,6 +6,11 @@
   "main": "./out/main/index.js",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@10.30.2",
+  "engines": {
+    "//": "undici 8 needs worker_threads.markAsUncloneable, which Node 20 lacks.",
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "electron-vite dev",
     "dev:web": "vite --config vite.web.config.ts",
