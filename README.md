@@ -22,6 +22,7 @@ Codex Quota keeps each account's credentials in its own profile, shows every acc
 ## Features
 
 - **Every account's quota at a glance.** Plan, remaining percentage, reset time and available reset credits, fetched per account in the background so nothing blocks.
+- **Lives in the menu bar.** The icon carries the headroom you have left, and its panel holds a swipeable card per account with an Activate button on each one.
 - **One-click switching.** Move the live Codex credential to any account, with the previous one backed up automatically.
 - **Honest state.** If something moved `~/.codex/auth.json` outside the app, that account reads as drifted rather than pretending to be live.
 - **Token history.** Lifetime tokens, daily activity, streaks and longest run, straight from your Codex profile.
@@ -30,6 +31,12 @@ Codex Quota keeps each account's credentials in its own profile, shows every acc
 
 > [!NOTE]
 > This is a full port of the [CodeX-Quota](https://github.com/Ldsystem/CodeX-Quota) bash CLI into TypeScript. It reads and writes the same files, so the two can be used interchangeably on the same machine.
+
+## The menu bar
+
+Closing the window does not quit the app. The icon stays, showing the headroom left on the account in use, or the best account to switch to marked with an arrow when nothing is in use. Clicking it opens a panel you can swipe through, one card per account, and switching from a card is a single click — the same guard applies as in the window, so switching under a running Codex Desktop asks first.
+
+The panel keeps reading quota while it is hidden, which is what keeps the figure beside the icon honest. Right-clicking the icon offers the window, a refresh, a start-at-login switch, and quit. Settings has the same switch plus one to hide the Dock icon entirely.
 
 ## Coming from the CLI
 
@@ -112,14 +119,14 @@ pnpm typecheck
 pnpm dist       # arm64 .dmg and .zip in release/
 ```
 
-`pnpm dev:web` runs the interface against an in-memory fixture service, so layout and states can be worked on without touching real credentials.
+`pnpm dev:web` runs the interface against an in-memory fixture service, so layout and states can be worked on without touching real credentials. The menu bar panel is a second page on the same server, at `/panel.html`.
 
 ```
 src/
-  main/        Electron main process: files, HTTP, spawning codex
+  main/        Electron main process: files, HTTP, spawning codex, tray and panel
   preload/     Context bridge
-  shared/      Domain model and the service contract
-  renderer/    React interface
+  shared/      Domain model, the service contract, and the shell contract
+  renderer/    React interface: the window and the menu bar panel
 ```
 
 ## Releasing
