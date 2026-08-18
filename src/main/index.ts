@@ -23,8 +23,13 @@ import {
   broadcastPreferences,
   registerShellIpc
 } from './shell-api'
+import { shouldQuitOnWindowAllClosed } from './shell-policy'
 import { createTray } from './tray'
 import type { TrayController } from './tray'
+
+if (process.platform === 'win32') {
+  app.setAppUserModelId('dev.codexquota.desktop')
+}
 
 const isDev = !app.isPackaged
 const preloadPath = join(__dirname, '../preload/index.cjs')
@@ -151,7 +156,9 @@ app.on('will-quit', () => {
 })
 
 app.on('window-all-closed', () => {
-  // On macOS the tray is the app, so no windows is a normal state. Elsewhere
-  // there is no menu bar to live in, and staying would strand the process.
-  if (process.platform !== 'darwin') app.quit()
+  // The tray is the session on macOS and Windows. Linux still quits so a
+  // headless process is not left behind when there is no notification area.
+  if (shouldQuitOnWindowAllClosed(process.platform, { trayPresent: tray !== null })) {
+    app.quit()
+  }
 })
