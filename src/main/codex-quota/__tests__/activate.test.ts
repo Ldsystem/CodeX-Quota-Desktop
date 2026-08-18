@@ -41,7 +41,7 @@ describe('credential moves', () => {
 
       const result = await activateAccount(scratch.paths, 'work', { desktopRunning: false })
 
-      expect(result.backupPath).toMatch(/backups\/\d{8}-\d{6}-auth\.json$/)
+      expect(result.backupPath).toMatch(/backups[/\\]\d{8}-\d{6}-auth\.json$/)
       expect(await readFile(result.backupPath as string, 'utf8')).toBe(CREDENTIAL('desktop-token'))
       expect(await readLive()).toBe(CREDENTIAL('work-token'))
       expect(await readActive(scratch.paths)).toMatchObject({

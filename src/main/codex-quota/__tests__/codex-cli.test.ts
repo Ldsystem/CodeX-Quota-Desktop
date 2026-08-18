@@ -81,7 +81,40 @@ describe('codex binary resolution', () => {
     expect(await resolve({ bundledPath: bundled })).toEqual({ path: bundled, origin: 'bundled' })
   })
 
-  it('ignores a non-executable file on PATH', async () => {
+  it('finds codex.exe on a Windows PATH', async () => {
+    const onPath = await fakeBinary(join(scratch.home, 'winbin'), 'codex.exe')
+
+    expect(
+      await resolve({ platform: 'win32', env: { PATH: join(scratch.home, 'winbin') } })
+    ).toEqual({ path: onPath, origin: 'path' })
+  })
+
+  it('finds codex.cmd in a Windows known directory', async () => {
+    const installed = await fakeBinary(join(scratch.home, 'AppData', 'Roaming', 'npm'), 'codex.cmd')
+
+    expect(
+      await resolve({
+        platform: 'win32',
+        knownDirectories: [join(scratch.home, 'AppData', 'Roaming', 'npm')]
+      })
+    ).toEqual({ path: installed, origin: 'known-location' })
+  })
+
+  it('still returns null for a bad override on Windows rather than using PATH', async () => {
+    await fakeBinary(join(scratch.home, 'winbin'), 'codex.exe')
+
+    expect(
+      await resolve({
+        platform: 'win32',
+        env: {
+          PATH: join(scratch.home, 'winbin'),
+          CODEX_QUOTA_CODEX_BIN: join(scratch.home, 'gone.exe')
+        }
+      })
+    ).toBeNull()
+  })
+
+  it.skipIf(process.platform === 'win32')('ignores a non-executable file on PATH', async () => {
     const directory = join(scratch.home, 'bin')
     await mkdir(directory, { recursive: true })
     await writeFile(join(directory, 'codex'), 'not executable', { mode: 0o644 })

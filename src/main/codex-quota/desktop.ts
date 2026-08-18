@@ -24,6 +24,9 @@ const PROBES: readonly string[][] = [
   ['-f', '/Applications/Codex.app/Contents/MacOS/']
 ]
 
+/** Image names recorded by task-001 / OQ-001; tasklist filters on these. */
+const WIN32_PROBES: readonly string[][] = [['ChatGPT.exe'], ['Codex.exe']]
+
 export interface DesktopProbeOptions {
   platform?: NodeJS.Platform | string
   run?: ProcessProbe
@@ -33,13 +36,27 @@ const defaultProbe: ProcessProbe = async (args) => {
   await execFileAsync('pgrep', [...args], { timeout: 2_000 })
 }
 
+/** tasklist exits 0 with an INFO line when nothing matches, so stdout is the oracle. */
+const defaultWin32Probe: ProcessProbe = async (args) => {
+  const image = args[0] ?? ''
+  const { stdout } = await execFileAsync('tasklist', ['/FI', `IMAGENAME eq ${image}`, '/NH'], {
+    timeout: 2_000,
+    windowsHide: true
+  })
+  const matched = stdout
+    .split(/\r?\n/)
+    .some((line) => line.trim().toLowerCase().startsWith(image.toLowerCase()))
+  if (!matched) throw new Error('no process matched')
+}
+
 export async function isDesktopRunning(options: DesktopProbeOptions = {}): Promise<boolean> {
   const platform = options.platform ?? process.platform
-  if (platform !== 'darwin') return false
+  if (platform !== 'darwin' && platform !== 'win32') return false
 
-  const run = options.run ?? defaultProbe
+  const run = options.run ?? (platform === 'win32' ? defaultWin32Probe : defaultProbe)
+  const probes = platform === 'win32' ? WIN32_PROBES : PROBES
 
-  for (const args of PROBES) {
+  for (const args of probes) {
     try {
       await run(args)
       return true

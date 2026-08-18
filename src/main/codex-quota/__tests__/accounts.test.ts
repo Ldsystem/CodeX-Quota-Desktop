@@ -28,7 +28,9 @@ describe('accounts', () => {
     expect(await listAccounts(scratch.paths)).toEqual(['work'])
 
     const directory = accountDir(scratch.paths, 'work')
-    expect(((await stat(directory)).mode & 0o777).toString(8)).toBe('700')
+    if (process.platform !== 'win32') {
+      expect(((await stat(directory)).mode & 0o777).toString(8)).toBe('700')
+    }
 
     const profile = JSON.parse(await readFile(accountProfilePath(scratch.paths, 'work'), 'utf8'))
     expect(profile).toMatchObject({
