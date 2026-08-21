@@ -158,6 +158,32 @@ describe('readRegistrySnapshot', () => {
     expect(active?.profileAuthSha256).toBe(sha256(refreshed))
   })
 
+  it('preserves a newer recorded profile when the live credential did not move', async () => {
+    const live = '{"tokens":{"access_token":"old","account_id":"acct_1"}}'
+    const newerProfile = '{"tokens":{"access_token":"new","account_id":"acct_1"}}'
+    const profilePath = join(paths.accountsDir, 'plus_01', 'auth.json')
+    await addAccount('plus_01', { auth: newerProfile })
+    await writeFile(paths.liveAuth, live, 'utf8')
+    await writeFile(
+      paths.activeJson,
+      JSON.stringify({
+        account: 'plus_01',
+        profileMode: 'desktop_preserving',
+        activeAuthSha256: sha256(live),
+        profileAuthSha256: sha256(newerProfile),
+        source: 'activate'
+      }),
+      'utf8'
+    )
+
+    const [account] = (await snapshot()).accounts
+
+    expect(account?.active).toBe('unknown')
+    expect(account?.warnings).toContain('active-drift')
+    expect(await readFile(profilePath, 'utf8')).toBe(newerProfile)
+    expect(await readFile(paths.liveAuth, 'utf8')).toBe(live)
+  })
+
   it('preserves drift when the live credential belongs to a different account', async () => {
     const original = '{"tokens":{"access_token":"old","account_id":"acct_1"}}'
     const replacement = '{"tokens":{"access_token":"new","account_id":"acct_2"}}'
