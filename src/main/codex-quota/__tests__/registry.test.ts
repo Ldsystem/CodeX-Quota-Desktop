@@ -1,10 +1,11 @@
 import { createHash } from 'node:crypto'
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import { resolvePaths, type CodexQuotaPaths } from '../paths'
+import { readActive, writeActive } from '../active'
 import { readEnvironmentSnapshot, readRegistrySnapshot } from '../registry'
 
 let root = ''
@@ -133,6 +134,93 @@ describe('readRegistrySnapshot', () => {
     const [account] = (await snapshot()).accounts
     expect(account?.active).toBe('unknown')
     expect(account?.warnings).toContain('active-drift')
+  })
+
+  it('adopts a refreshed live credential when its stable account identity matches', async () => {
+    const original = '{"tokens":{"access_token":"old","account_id":"acct_1"}}'
+    const refreshed = '{"tokens":{"access_token":"new","account_id":"acct_1"}}'
+    await addAccount('plus_01', { auth: original })
+    await writeFile(paths.liveAuth, original, 'utf8')
+    await writeActive(paths, {
+      account: 'plus_01',
+      profileMode: 'desktop_preserving',
+      source: 'activate'
+    })
+
+    await writeFile(paths.liveAuth, refreshed, 'utf8')
+
+    const [account] = (await snapshot()).accounts
+    const active = await readActive(paths)
+    expect(account?.active).toBe('yes')
+    expect(account?.warnings).not.toContain('active-drift')
+    expect(await readFile(join(paths.accountsDir, 'plus_01', 'auth.json'), 'utf8')).toBe(refreshed)
+    expect(active?.activeAuthSha256).toBe(sha256(refreshed))
+    expect(active?.profileAuthSha256).toBe(sha256(refreshed))
+  })
+
+  it('preserves drift when the live credential belongs to a different account', async () => {
+    const original = '{"tokens":{"access_token":"old","account_id":"acct_1"}}'
+    const replacement = '{"tokens":{"access_token":"new","account_id":"acct_2"}}'
+    await addAccount('plus_01', { auth: original })
+    await writeFile(paths.liveAuth, original, 'utf8')
+    await writeActive(paths, {
+      account: 'plus_01',
+      profileMode: 'desktop_preserving',
+      source: 'activate'
+    })
+
+    await writeFile(paths.liveAuth, replacement, 'utf8')
+
+    const [account] = (await snapshot()).accounts
+    expect(account?.active).toBe('unknown')
+    expect(account?.warnings).toContain('active-drift')
+    expect(await readFile(join(paths.accountsDir, 'plus_01', 'auth.json'), 'utf8')).toBe(original)
+  })
+
+  it('preserves drift when stable account identity cannot be verified', async () => {
+    const original = '{"tokens":{"access_token":"old"}}'
+    const replacement = '{"tokens":{"access_token":"new"}}'
+    await addAccount('plus_01', { auth: original })
+    await writeFile(paths.liveAuth, original, 'utf8')
+    await writeActive(paths, {
+      account: 'plus_01',
+      profileMode: 'desktop_preserving',
+      source: 'activate'
+    })
+
+    await writeFile(paths.liveAuth, replacement, 'utf8')
+
+    const [account] = (await snapshot()).accounts
+    expect(account?.active).toBe('unknown')
+    expect(account?.warnings).toContain('active-drift')
+    expect(await readFile(join(paths.accountsDir, 'plus_01', 'auth.json'), 'utf8')).toBe(original)
+  })
+
+  it('preserves drift and refuses a non-canonical active profile path', async () => {
+    const original = '{"tokens":{"access_token":"old","account_id":"acct_1"}}'
+    const refreshed = '{"tokens":{"access_token":"new","account_id":"acct_1"}}'
+    const redirected = join(root, 'redirected-auth.json')
+    await addAccount('plus_01', { auth: original })
+    await writeFile(paths.liveAuth, original, 'utf8')
+    await writeFile(redirected, original, 'utf8')
+    await writeFile(
+      paths.activeJson,
+      JSON.stringify({
+        account: 'plus_01',
+        profileMode: 'desktop_preserving',
+        profileAuthPath: redirected,
+        activeAuthSha256: sha256(original),
+        profileAuthSha256: sha256(original),
+        source: 'activate'
+      }),
+      'utf8'
+    )
+    await writeFile(paths.liveAuth, refreshed, 'utf8')
+
+    const [account] = (await snapshot()).accounts
+    expect(account?.active).toBe('unknown')
+    expect(account?.warnings).toContain('active-drift')
+    expect(await readFile(redirected, 'utf8')).toBe(original)
   })
 
   it('falls back to comparing the live credential when active.json is absent', async () => {

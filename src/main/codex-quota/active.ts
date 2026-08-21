@@ -10,8 +10,9 @@
 
 import { readFile } from 'node:fs/promises'
 
-import type { ProfileMode } from '../../shared/codex-quota'
+import { validateAccountName, type ProfileMode } from '../../shared/codex-quota'
 import { writeFileAtomic } from './atomic'
+import { readAuthSnapshot } from './auth-file'
 import { sha256File } from './checksum'
 import { accountAuthPath, type CodexQuotaPaths } from './paths'
 
@@ -129,4 +130,72 @@ export async function activeMatchesAccount(
     profileSha === active.profileAuthSha256 &&
     liveSha === profileSha
   )
+}
+
+export type ActiveReconciliation = 'none' | 'matched' | 'adopted' | 'drift'
+
+/**
+ * Adopt a live credential rewritten by Codex only when the stored profile is
+ * still exactly the copy recorded in active.json and both documents expose the
+ * same stable account id. Any ambiguity remains drift.
+ */
+/** Caller must hold the live credential-state lock through its subsequent read. */
+export async function reconcileActiveCredentialUnderLock(
+  paths: CodexQuotaPaths,
+  registeredAccounts: readonly string[]
+): Promise<ActiveReconciliation> {
+  const active = await readActive(paths)
+  if (active === null) return 'none'
+
+  const canonicalProfilePath = accountAuthPath(paths, active.account)
+  if (
+    validateAccountName(active.account) !== null ||
+    !registeredAccounts.includes(active.account) ||
+    active.profileAuthPath !== canonicalProfilePath
+  ) {
+    return 'drift'
+  }
+
+  const [live, profile] = await Promise.all([
+    readAuthSnapshot(paths.liveAuth),
+    readAuthSnapshot(canonicalProfilePath)
+  ])
+  if (live !== null && profile !== null) {
+    if (
+      live.sha256 === active.activeAuthSha256 &&
+      profile.sha256 === active.profileAuthSha256 &&
+      live.sha256 === profile.sha256
+    ) {
+      return 'matched'
+    }
+  }
+
+  // The stored profile is the recorded identity witness. If it also moved,
+  // there is no trusted copy left from which to infer ownership.
+  if (
+    live === null ||
+    profile === null ||
+    active.profileAuthSha256 === null ||
+    profile.sha256 !== active.profileAuthSha256
+  ) {
+    return 'drift'
+  }
+
+  const liveAccountId = live.credentials.accountId
+  const profileAccountId = profile.credentials.accountId
+  if (
+    liveAccountId === null ||
+    profileAccountId === null ||
+    liveAccountId !== profileAccountId
+  ) {
+    return 'drift'
+  }
+
+  await writeFileAtomic(canonicalProfilePath, live.body)
+  await writeActive(paths, {
+    account: active.account,
+    source: active.source,
+    profileMode: active.profileMode
+  })
+  return 'adopted'
 }
