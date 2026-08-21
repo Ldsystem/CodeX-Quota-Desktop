@@ -9,7 +9,7 @@
 [![Release](https://img.shields.io/github/v/release/Ldsystem/CodeX-Quota-Desktop?color=22c55e&label=release)](https://github.com/Ldsystem/CodeX-Quota-Desktop/releases/latest)
 [![Build](https://github.com/Ldsystem/CodeX-Quota-Desktop/actions/workflows/release.yml/badge.svg)](https://github.com/Ldsystem/CodeX-Quota-Desktop/actions/workflows/release.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-macOS%20arm64-lightgrey.svg)](https://github.com/Ldsystem/CodeX-Quota-Desktop/releases/latest)
+[![Platform](https://img.shields.io/badge/platform-macOS%20arm64%20%7C%20Windows-lightgrey.svg)](https://github.com/Ldsystem/CodeX-Quota-Desktop/releases/latest)
 
 ![The overview: four summary cards above one row per account, each with its quota meter](docs/overview.png)
 
@@ -22,7 +22,7 @@ Codex Quota keeps each account's credentials in its own profile, shows every acc
 ## Features
 
 - **Every account's quota at a glance.** Plan, remaining percentage, reset time and available reset credits, fetched per account in the background so nothing blocks.
-- **Lives in the menu bar.** The icon carries the headroom you have left, and its panel holds a swipeable card per account with an Activate button on each one.
+- **Lives in the menu bar or notification area.** The icon carries the headroom you have left, and its panel holds a swipeable card per account with an Activate button on each one.
 - **One-click switching.** Move the live Codex credential to any account, with the previous one backed up automatically.
 - **Honest state.** If something moved `~/.codex/auth.json` outside the app, that account reads as drifted rather than pretending to be live.
 - **Token history.** Lifetime tokens, daily activity, streaks and longest run, straight from your Codex profile.
@@ -81,6 +81,8 @@ Codex no longer enforces a rolling 5-hour limit, so only the subscription window
 
 ## Install
 
+### macOS
+
 Download the latest DMG from the [releases page](https://github.com/Ldsystem/CodeX-Quota-Desktop/releases/latest), open it, and drag **Codex Quota** to Applications.
 
 The build is signed ad-hoc rather than with a Developer ID, so a downloaded copy arrives quarantined and Gatekeeper will refuse it until you either right-click → Open once, or clear the flag:
@@ -92,11 +94,19 @@ xattr -dr com.apple.quarantine "/Applications/Codex Quota.app"
 > [!IMPORTANT]
 > Apple silicon only, and there is no auto-update — download a newer DMG to upgrade.
 
+### Windows
+
+Download the latest NSIS installer (`CodexQuota-*-win-x64.exe`) from the [releases page](https://github.com/Ldsystem/CodeX-Quota-Desktop/releases/latest) and run it. Closing the window leaves the app in the notification area; quit from the tray icon.
+
+The installer is unsigned. Windows may show a SmartScreen warning on first launch — choose **More info** and **Run anyway** if you trust the build you downloaded. There is no auto-update; download a newer installer to upgrade.
+
+On Windows the live credential is still `%USERPROFILE%\.codex\auth.json`. The file inherits the directory's ACLs; the app does not set POSIX `600` permissions.
+
 ## Requirements
 
-- macOS on Apple silicon.
-- Codex Desktop, for the credential this app switches. Codex now ships inside the ChatGPT app rather than as its own app; either one counts, and the running check looks for both.
-- The `codex` CLI on your `PATH`, used for signing in and out and for priming a quota window. Nothing is bundled; the app runs the install you already trust.
+- macOS on Apple silicon, or Windows 10/11 (x64).
+- Codex Desktop or the ChatGPT app, for the credential this app switches. Codex now ships inside the ChatGPT app rather than as its own app; either one counts, and the running check looks for both.
+- The `codex` CLI on your `PATH` (including `codex.exe` / `codex.cmd` on Windows), used for signing in and out and for priming a quota window. Nothing is bundled; the app runs the install you already trust.
 
 ## How it works
 
@@ -141,6 +151,7 @@ pnpm dev:web    # Renderer only, in a browser, on fixture data
 pnpm test
 pnpm typecheck
 pnpm dist       # arm64 .dmg and .zip in release/
+pnpm dist:win   # x64 NSIS installer in release/
 ```
 
 `pnpm dev:web` runs the interface against an in-memory fixture service, so layout and states can be worked on without touching real credentials. The menu bar panel is a second page on the same server, at `/panel.html`.
@@ -155,11 +166,11 @@ src/
 
 ## Releasing
 
-Pushing a `v*` tag builds on a GitHub-hosted Apple silicon runner and publishes the DMG and zip to a release. No secrets are involved: the bundle is signed ad-hoc and the run's own token creates the release.
+Pushing a `v*` tag builds on a GitHub-hosted Apple silicon runner and a `windows-latest` runner, then publishes the DMG, zip, and Windows installer to a release. No secrets are involved: the macOS bundle is signed ad-hoc, the Windows installer is unsigned, and the run's own token creates the release. The Windows job never runs `codesign`.
 
 ```bash
 gh workflow run Release   # rehearse: builds and uploads an artifact, publishes nothing
-git tag v0.1.1 && git push origin v0.1.1
+git tag v0.4.0 && git push origin v0.4.0
 ```
 
-The job stops before publishing anything if the runner is not arm64, if the tag disagrees with the version in `package.json`, or if the packed bundle's signature does not verify.
+The macOS job stops before publishing if the runner is not arm64 or if the packed bundle's signature does not verify. Either job stops if the tag disagrees with the version in `package.json`. The Windows job never runs `codesign`. Publishing waits until both artifacts exist.

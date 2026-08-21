@@ -19,16 +19,16 @@ describe('atomic writes', () => {
     return ((await stat(path)).mode & 0o777).toString(8)
   }
 
-  it('writes through a temp file and ends at mode 600', async () => {
+  it('writes through a temp file and leaves only the destination', async () => {
     const target = join(scratch.home, 'nested', 'auth.json')
     await writeFileAtomic(target, '{"a":1}')
 
     expect(await readFile(target, 'utf8')).toBe('{"a":1}')
-    expect(await mode(target)).toBe('600')
+    if (process.platform !== 'win32') expect(await mode(target)).toBe('600')
     expect(await listDir(join(scratch.home, 'nested'))).toEqual(['auth.json'])
   })
 
-  it('copies byte for byte at mode 600 and leaves no temp file', async () => {
+  it('copies byte for byte and leaves no temp file', async () => {
     const source = join(scratch.home, 'source.json')
     const target = join(scratch.home, 'accounts', 'work', 'auth.json')
     await writeFile(source, '{"tokens":{"access_token":"x"}}', { mode: 0o644 })
@@ -36,7 +36,7 @@ describe('atomic writes', () => {
     await copyFileAtomic(source, target)
 
     expect(await readFile(target, 'utf8')).toBe(await readFile(source, 'utf8'))
-    expect(await mode(target)).toBe('600')
+    if (process.platform !== 'win32') expect(await mode(target)).toBe('600')
     expect(await listDir(join(scratch.home, 'accounts', 'work'))).toEqual(['auth.json'])
   })
 

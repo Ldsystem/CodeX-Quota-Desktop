@@ -11,6 +11,7 @@ import type { Rectangle } from 'electron'
 import { join } from 'node:path'
 
 import type { ShellPreferences, TrayStatus } from '../shared/shell'
+import { applyTrayStatus } from './shell-policy'
 
 export interface TrayHandlers {
   onToggle(bounds: Rectangle): void
@@ -61,14 +62,19 @@ function buildMenu(handlers: TrayHandlers, preferences: ShellPreferences): Menu 
   ])
 }
 
-export function createTray(handlers: TrayHandlers): TrayController {
+export function createTray(
+  handlers: TrayHandlers,
+  options: { platform?: NodeJS.Platform | string } = {}
+): TrayController {
+  const platform = options.platform ?? process.platform
+  const chrome = applyTrayStatus(platform, { title: '', tooltip: 'Codex Quota' })
   const image = nativeImage.createFromPath(iconPath())
   // Template images are recoloured by macOS to match the menu bar, including
   // when it inverts under a light wallpaper or a dark one.
-  image.setTemplateImage(true)
+  if (chrome.templateImage) image.setTemplateImage(true)
 
   const tray = new Tray(image)
-  tray.setToolTip('Codex Quota')
+  tray.setToolTip(chrome.tooltip)
 
   let preferences: ShellPreferences = { startAtLogin: false, menuBarOnly: false, autoSync: true }
   let menu = buildMenu(handlers, preferences)
@@ -81,8 +87,9 @@ export function createTray(handlers: TrayHandlers): TrayController {
 
   return {
     setStatus(status: TrayStatus): void {
-      tray.setTitle(status.title)
-      tray.setToolTip(status.tooltip)
+      const next = applyTrayStatus(platform, status)
+      if (platform === 'darwin') tray.setTitle(next.title)
+      tray.setToolTip(next.tooltip)
     },
     setPreferences(next: ShellPreferences): void {
       preferences = next

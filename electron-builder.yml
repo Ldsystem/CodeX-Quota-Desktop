@@ -2,6 +2,11 @@ appId: dev.codexquota.desktop
 productName: Codex Quota
 copyright: Copyright © 2026 Codex Quota
 
+# Windows Settings lists tray apps by FileDescription, which comes from
+# package.json description. Keep the repo description long; ship the product name.
+extraMetadata:
+  description: Codex Quota
+
 directories:
   buildResources: build
   output: release
@@ -52,4 +57,16 @@ mac:
 dmg:
   title: ${productName} ${version}
 
-nsis: null
+win:
+  artifactName: CodexQuota-${version}-win-${arch}.${ext}
+  icon: build/icon.png
+  target:
+    - target: nsis
+      arch:
+        - x64
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  shortcutName: Codex Quota

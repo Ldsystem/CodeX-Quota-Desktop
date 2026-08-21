@@ -31,8 +31,24 @@ describe('isDesktopRunning', () => {
     await expect(isDesktopRunning({ platform: 'darwin', run: pgrep([]) })).resolves.toBe(false)
   })
 
-  it('reports nothing running off macOS, where there is no such app to hold the credential', async () => {
+  it('reports nothing running on Linux, where there is no such app to hold the credential', async () => {
     const everything = async (): Promise<void> => undefined
-    await expect(isDesktopRunning({ platform: 'win32', run: everything })).resolves.toBe(false)
+    await expect(isDesktopRunning({ platform: 'linux', run: everything })).resolves.toBe(false)
+  })
+
+  it('recognises ChatGPT.exe on Windows when the injected runner matches', async () => {
+    await expect(
+      isDesktopRunning({ platform: 'win32', run: pgrep(['ChatGPT.exe']) })
+    ).resolves.toBe(true)
+  })
+
+  it('recognises Codex.exe on Windows when the injected runner matches', async () => {
+    await expect(isDesktopRunning({ platform: 'win32', run: pgrep(['Codex.exe']) })).resolves.toBe(
+      true
+    )
+  })
+
+  it('reports nothing running on Windows when no probe matches', async () => {
+    await expect(isDesktopRunning({ platform: 'win32', run: pgrep([]) })).resolves.toBe(false)
   })
 })

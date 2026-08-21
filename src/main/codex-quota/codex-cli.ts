@@ -31,10 +31,11 @@ export interface ResolveOptions {
   home?: string
   /** Overridable so tests never depend on what this machine has installed. */
   knownDirectories?: readonly string[]
+  platform?: NodeJS.Platform | string
 }
 
 /** Where the documented installers put `codex`, in the order they are tried. */
-const KNOWN_DIRECTORIES: readonly string[] = [
+const UNIX_KNOWN_DIRECTORIES: readonly string[] = [
   '~/.local/bin',
   '/opt/homebrew/bin',
   '/usr/local/bin',
@@ -43,6 +44,32 @@ const KNOWN_DIRECTORIES: readonly string[] = [
   '~/.npm-global/bin',
   '~/bin'
 ]
+
+function windowsKnownDirectories(
+  env: Record<string, string | undefined>,
+  home: string
+): readonly string[] {
+  const local = env.LOCALAPPDATA ?? join(home, 'AppData', 'Local')
+  const roaming = env.APPDATA ?? join(home, 'AppData', 'Roaming')
+  return [
+    join(local, 'Programs'),
+    join(home, 'scoop', 'shims'),
+    join(local, 'Microsoft', 'WinGet', 'Links'),
+    join(roaming, 'npm'),
+    ...UNIX_KNOWN_DIRECTORIES
+  ]
+}
+
+function binaryNames(platform: string, env: Record<string, string | undefined>): readonly string[] {
+  if (platform !== 'win32') return ['codex']
+  const extensions = (env.PATHEXT ?? '.COM;.EXE;.BAT;.CMD')
+    .split(';')
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0)
+    .map((entry) => (entry.startsWith('.') ? entry : `.${entry}`))
+  const names = ['codex', ...extensions.map((ext) => `codex${ext.toLowerCase()}`)]
+  return Array.from(new Set(names))
+}
 
 export interface RunOptions {
   /** Per-account `CODEX_HOME`, which is how credentials stay separated. */
@@ -72,6 +99,8 @@ async function executable(path: string): Promise<boolean> {
 export async function resolveCodexBinary(options: ResolveOptions = {}): Promise<ResolvedBinary | null> {
   const env = options.env ?? process.env
   const home = options.home ?? homedir()
+  const platform = options.platform ?? process.platform
+  const names = binaryNames(platform, env)
 
   // An explicit setting beats every guess, which is the escape hatch for an
   // install this list has never heard of.
@@ -82,14 +111,21 @@ export async function resolveCodexBinary(options: ResolveOptions = {}): Promise<
 
   const onPath = (env.PATH ?? '').split(delimiter).filter((entry) => entry.length > 0)
   for (const directory of onPath) {
-    const candidate = join(directory, 'codex')
-    if (await executable(candidate)) return { path: candidate, origin: 'path' }
+    for (const name of names) {
+      const candidate = join(directory, name)
+      if (await executable(candidate)) return { path: candidate, origin: 'path' }
+    }
   }
 
-  for (const directory of options.knownDirectories ?? KNOWN_DIRECTORIES) {
+  const known = options.knownDirectories ?? (
+    platform === 'win32' ? windowsKnownDirectories(env, home) : UNIX_KNOWN_DIRECTORIES
+  )
+  for (const directory of known) {
     const expanded = isAbsolute(directory) ? directory : join(home, directory.replace(/^~\//, ''))
-    const candidate = join(expanded, 'codex')
-    if (await executable(candidate)) return { path: candidate, origin: 'known-location' }
+    for (const name of names) {
+      const candidate = join(expanded, name)
+      if (await executable(candidate)) return { path: candidate, origin: 'known-location' }
+    }
   }
 
   const bundled = options.bundledPath
