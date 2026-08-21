@@ -7,12 +7,16 @@
  * as stale instead.
  */
 
+import { validateAccountName } from '../../shared/codex-quota'
+import { accountExists } from './accounts'
+import { activeMatchesAccount, readActive, writeActive } from './active'
 import { readAuthCredentials, readAuthDocument } from './auth-file'
 import { writeFileAtomic } from './atomic'
 import { sha256File } from './checksum'
+import { withCredentialStateLock } from './credential-state-lock'
 import { requestJson } from './http'
 import { isJwtExpired } from './jwt'
-import type { CodexQuotaPaths } from './paths'
+import { accountAuthPath, type CodexQuotaPaths } from './paths'
 
 type Json = Record<string, unknown>
 
@@ -25,6 +29,8 @@ function asRecord(value: unknown): Json | null {
 function asText(value: unknown): string | null {
   return typeof value === 'string' && value.length > 0 ? value : null
 }
+
+const refreshFlights = new Map<string, Promise<boolean>>()
 
 /** True when writing to this file cannot desynchronise anything else. */
 export async function mayRefresh(paths: CodexQuotaPaths, authPath: string): Promise<boolean> {
@@ -41,11 +47,54 @@ export async function refreshAuthFile(
   paths: CodexQuotaPaths,
   authPath: string
 ): Promise<boolean> {
+  const existing = refreshFlights.get(authPath)
+  if (existing) return existing
+
+  const flight = withCredentialStateLock(paths.liveAuth, () =>
+    refreshAuthFileLocked(paths, authPath)
+  )
+  refreshFlights.set(authPath, flight)
+  const cleanup = (): void => {
+    if (refreshFlights.get(authPath) === flight) refreshFlights.delete(authPath)
+  }
+  void flight.then(cleanup, cleanup)
+  return flight
+}
+
+async function refreshAuthFileLocked(
+  paths: CodexQuotaPaths,
+  authPath: string
+): Promise<boolean> {
   const document = await readAuthDocument(authPath)
   const credentials = await readAuthCredentials(authPath)
   if (!document || !credentials?.refreshToken) return false
 
   const previousSha = await sha256File(authPath)
+  if (previousSha === null) return false
+  const active = await readActive(paths)
+  const activeAccountIsRegistered =
+    active !== null &&
+    validateAccountName(active.account) === null &&
+    (await accountExists(paths, active.account))
+  const canonicalActiveProfilePath = activeAccountIsRegistered
+    ? accountAuthPath(paths, active.account)
+    : null
+  const activeMetadataIsCanonical =
+    active !== null &&
+    canonicalActiveProfilePath !== null &&
+    active.profileAuthPath === canonicalActiveProfilePath
+  const touchesActiveCredential =
+    active !== null &&
+    (authPath === paths.liveAuth ||
+      authPath === active.profileAuthPath ||
+      authPath === canonicalActiveProfilePath)
+  if (touchesActiveCredential && !activeMetadataIsCanonical) return false
+
+  const refreshesVerifiedActive =
+    active !== null &&
+    canonicalActiveProfilePath !== null &&
+    (authPath === paths.liveAuth || authPath === canonicalActiveProfilePath) &&
+    (await activeMatchesAccount(paths, active.account))
 
   let response: Awaited<ReturnType<typeof requestJson>>
   try {
@@ -67,15 +116,43 @@ export async function refreshAuthFile(
   const accessToken = asText(payload?.access_token)
   if (response.status !== 200 || accessToken === null) return false
 
+  // The request can take seconds, during which Codex may rotate or replace the
+  // live credential. Never commit a response derived from a file that moved.
+  if ((await sha256File(authPath)) !== previousSha) return false
+  if (
+    refreshesVerifiedActive &&
+    active !== null &&
+    !(await activeMatchesAccount(paths, active.account))
+  ) {
+    return false
+  }
+
   const tokens = { ...(asRecord(document.tokens) ?? {}) }
   tokens.access_token = accessToken
   tokens.refresh_token = asText(payload?.refresh_token) ?? tokens.refresh_token
   tokens.id_token = asText(payload?.id_token) ?? tokens.id_token
 
-  await writeFileAtomic(
-    authPath,
-    `${JSON.stringify({ ...document, tokens, last_refresh: new Date().toISOString() })}\n`
-  )
+  const refreshed = `${JSON.stringify({
+    ...document,
+    tokens,
+    last_refresh: new Date().toISOString()
+  })}\n`
+  await writeFileAtomic(authPath, refreshed)
+
+  if (
+    refreshesVerifiedActive &&
+    active !== null &&
+    canonicalActiveProfilePath !== null
+  ) {
+    const counterpart = authPath === paths.liveAuth ? canonicalActiveProfilePath : paths.liveAuth
+    await writeFileAtomic(counterpart, refreshed)
+    await writeActive(paths, {
+      account: active.account,
+      source: active.source,
+      profileMode: active.profileMode
+    })
+    return true
+  }
 
   await syncLiveIfShared(paths, authPath, previousSha)
   return true

@@ -14,8 +14,10 @@ import type {
   TriState,
   WarningLabel
 } from '../../shared/codex-quota'
+import { reconcileActiveCredentialUnderLock } from './active'
 import { inspectAuthFile } from './auth-file'
 import { sha256File } from './checksum'
+import { withCredentialStateLock } from './credential-state-lock'
 import { accountAuthPath, accountProfilePath, type CodexQuotaPaths } from './paths'
 
 export interface RegistryOptions {
@@ -142,19 +144,24 @@ export async function readRegistrySnapshot(
   paths: CodexQuotaPaths,
   options: RegistryOptions
 ): Promise<RegistrySnapshot> {
-  const [names, active, liveSha] = await Promise.all([
-    readAccountNames(paths.registry),
-    readActiveRecord(paths.activeJson),
-    sha256File(paths.liveAuth)
-  ])
+  return withCredentialStateLock(paths.liveAuth, async () => {
+    const names = await readAccountNames(paths.registry)
+    // Codex may legitimately rotate the live OAuth credential between reads.
+    // Reconcile only a provable same-account update, then observe the resulting
+    // files before another in-process credential mutation can begin.
+    await reconcileActiveCredentialUnderLock(paths, names)
 
-  const accounts = await Promise.all(
-    names.map((account) => readAccount(paths, account, active, liveSha))
-  )
+    const [active, liveSha] = await Promise.all([
+      readActiveRecord(paths.activeJson),
+      sha256File(paths.liveAuth)
+    ])
+    const accounts = await Promise.all(
+      names.map((account) => readAccount(paths, account, active, liveSha))
+    )
+    const environment = await readEnvironmentSnapshot(paths, options, active)
 
-  const environment = await readEnvironmentSnapshot(paths, options, active)
-
-  return { readAt: new Date().toISOString(), environment, accounts }
+    return { readAt: new Date().toISOString(), environment, accounts }
+  })
 }
 
 async function readAccount(

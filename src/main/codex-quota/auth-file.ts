@@ -7,6 +7,7 @@
  * and exists solely to build the usage request.
  */
 
+import { createHash } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 
 export interface AuthInspection {
@@ -22,6 +23,13 @@ export interface AuthCredentials {
   refreshToken: string | null
   idToken: string | null
   accountId: string | null
+}
+
+export interface AuthFileSnapshot {
+  /** Exact bytes decoded as UTF-8, suitable for an atomic replacement. */
+  body: string
+  credentials: AuthCredentials
+  sha256: string
 }
 
 type Json = Record<string, unknown>
@@ -101,6 +109,34 @@ export async function inspectAuthFile(path: string): Promise<AuthInspection> {
 export async function readAuthCredentials(path: string): Promise<AuthCredentials | null> {
   const { root } = await parse(path)
   return root ? readCredentials(root) : null
+}
+
+/**
+ * Captures content, identity fields, and digest from one read. This stays in the
+ * main process and lets reconciliation write exactly what it verified instead
+ * of reopening a source Codex may replace between those steps.
+ */
+export async function readAuthSnapshot(path: string): Promise<AuthFileSnapshot | null> {
+  let bytes: Buffer
+  try {
+    bytes = await readFile(path)
+  } catch {
+    return null
+  }
+
+  let root: Json | null
+  try {
+    root = asRecord(JSON.parse(bytes.toString('utf8')))
+  } catch {
+    root = null
+  }
+  if (root === null) return null
+
+  return {
+    body: bytes.toString('utf8'),
+    credentials: readCredentials(root),
+    sha256: createHash('sha256').update(bytes).digest('hex')
+  }
 }
 
 /**
