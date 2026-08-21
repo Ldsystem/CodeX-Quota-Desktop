@@ -170,12 +170,15 @@ export async function reconcileActiveCredentialUnderLock(
     }
   }
 
-  // The stored profile is the recorded identity witness. If it also moved,
-  // there is no trusted copy left from which to infer ownership.
+  // The stored profile is the recorded identity witness, and only the live
+  // credential is allowed to have moved. If the profile moved or the live
+  // credential did not, there is no verified refresh to adopt.
   if (
     live === null ||
     profile === null ||
+    active.activeAuthSha256 === null ||
     active.profileAuthSha256 === null ||
+    live.sha256 === active.activeAuthSha256 ||
     profile.sha256 !== active.profileAuthSha256
   ) {
     return 'drift'
