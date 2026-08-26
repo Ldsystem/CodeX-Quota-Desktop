@@ -80,8 +80,10 @@ export function OverviewView({
 
   const nextReset = accounts
     .flatMap((account) =>
-      account.quota.status === 'ready' && account.quota.report.window.resetAt !== null
-        ? [{ account: account.account, resetAt: account.quota.report.window.resetAt }]
+      account.quota.status === 'ready'
+        ? account.quota.report.windows.flatMap((window) =>
+            window.resetAt === null ? [] : [{ account: account.account, resetAt: window.resetAt }]
+          )
         : []
     )
     .sort((a, b) => a.resetAt - b.resetAt)[0]

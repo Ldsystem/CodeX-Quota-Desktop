@@ -34,8 +34,8 @@ export interface WindowSample {
 /** While any window is still undecided or waiting to be started. */
 export const SYNC_INTERVAL_MS = 120_000
 
-/** Once every window is known to be counting; enough to keep the figure fresh. */
-export const IDLE_SYNC_INTERVAL_MS = 600_000
+/** Once every window is known to be counting; keeps displayed budgets at most five minutes old. */
+export const IDLE_SYNC_INTERVAL_MS = 300_000
 
 /** Below this the two samples cannot be told apart from rounding. */
 export const MIN_SAMPLE_GAP_MS = 30_000
@@ -101,4 +101,13 @@ export function shouldPrime(context: PrimeContext): boolean {
 export function syncIntervalMs(states: readonly WindowState[]): number {
   const undecided = states.some((state) => state === 'unknown' || state === 'not-started')
   return undecided ? SYNC_INTERVAL_MS : IDLE_SYNC_INTERVAL_MS
+}
+
+/** Enabling the switch is itself a request for a fresh reading. */
+export function syncDelayMs(
+  states: readonly WindowState[],
+  wasEnabled: boolean,
+  enabled: boolean
+): number {
+  return enabled && !wasEnabled ? 0 : syncIntervalMs(states)
 }

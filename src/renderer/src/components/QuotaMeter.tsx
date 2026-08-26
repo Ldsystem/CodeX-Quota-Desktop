@@ -1,6 +1,6 @@
 import { ArrowClockwise } from '@phosphor-icons/react'
 
-import type { QuotaState } from '../../../shared/codex-quota'
+import type { QuotaState, QuotaWindow } from '../../../shared/codex-quota'
 import {
   describeWindow,
   formatCountdown,
@@ -13,17 +13,22 @@ import {
 interface QuotaMeterProps {
   state: QuotaState
   now: Date
+  /** Uses the fixed menu-panel rail: short label, exact reset, percent, then track. */
+  compact?: boolean
   /** Defaults to the window length the API reported once it is known. */
   label?: string
   /** Offered when the fetch failed; omit to render the failure read-only. */
   onRetry?: () => void
 }
 
-/**
- * The bar always occupies the same space in every state, so rows do not jump
- * around as background fetches land one by one.
- */
-export function QuotaMeter({ state, now, label = 'Quota', onRetry }: QuotaMeterProps): React.JSX.Element {
+/** One aligned rail per reported limit; normally 5-hour above weekly. */
+export function QuotaMeter({
+  state,
+  now,
+  compact = false,
+  label = 'Quota',
+  onRetry
+}: QuotaMeterProps): React.JSX.Element {
   if (state.status === 'loading' || state.status === 'idle') {
     const pending = state.status === 'loading'
     return (
@@ -69,16 +74,52 @@ export function QuotaMeter({ state, now, label = 'Quota', onRetry }: QuotaMeterP
     )
   }
 
-  const { window } = state.report
+  if (state.report.windows.length === 0) {
+    return (
+      <div className="meter">
+        <span className="meter__label">{label}</span>
+        <div className="meter__track"><div className="meter__fill meter__fill--unknown" /></div>
+        <div className="meter__readout">
+          <span className="meter__value meter__value--unknown numeric">--</span>
+          <span className="meter__reset">usage unavailable</span>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="quota-rails">
+      {state.report.windows.map((window, index) => (
+        <QuotaRail
+          key={`${window.limitWindowSeconds ?? 'unknown'}-${index}`}
+          window={window}
+          now={now}
+          compact={compact}
+        />
+      ))}
+    </div>
+  )
+}
+
+function QuotaRail({
+  window,
+  now,
+  compact
+}: {
+  window: QuotaWindow
+  now: Date
+  compact: boolean
+}): React.JSX.Element {
   const left = percentLeft(window)
   const level = quotaLevel(left)
   const reset = formatResetAt(window.resetAt, now)
   const countdown = formatCountdown(window.resetAt, now)
   const windowLabel = describeWindow(window.limitWindowSeconds)
+  const visibleLabel = compact && windowLabel === '5-hour' ? '5h' : windowLabel
 
   return (
-    <div className="meter">
-      <span className="meter__label">{windowLabel}</span>
+    <div className={`meter${compact ? ' meter--compact' : ''}`}>
+      <span className="meter__label">{visibleLabel}</span>
       <div
         className="meter__track"
         role="progressbar"
@@ -93,17 +134,34 @@ export function QuotaMeter({ state, now, label = 'Quota', onRetry }: QuotaMeterP
           style={left === null ? undefined : { width: `${left}%` }}
         />
       </div>
-      <div className="meter__readout">
-        <span className={`meter__value numeric meter__value--${level}`}>
-          {formatPercent(left)}
-          {left !== null ? <span className="visually-hidden"> remaining</span> : null}
-        </span>
-        <span className="meter__reset">
-          {window.resetAt === null
-            ? 'window not started'
-            : `resets ${reset}${countdown ? `, ${countdown}` : ''}`}
-        </span>
-      </div>
+      {compact ? (
+        <>
+          <span className="meter__reset">
+            {window.resetAt === null ? 'Not started' : `Reset · ${reset}`}
+          </span>
+          <span className={`meter__value numeric meter__value--${level}`}>
+            {formatPercent(left)}
+            {left !== null ? <span className="visually-hidden"> remaining</span> : null}
+          </span>
+        </>
+      ) : (
+        <div className="meter__readout">
+          <span className={`meter__value numeric meter__value--${level}`}>
+            {formatPercent(left)}
+            {left !== null ? <span className="visually-hidden"> remaining</span> : null}
+          </span>
+          <span className="meter__reset">
+            {window.resetAt === null ? (
+              'window not started'
+            ) : (
+              <>
+                resets {reset}
+                {countdown ? <span className="meter__countdown">, {countdown}</span> : null}
+              </>
+            )}
+          </span>
+        </div>
+      )}
     </div>
   )
 }

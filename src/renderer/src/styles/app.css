@@ -501,6 +501,11 @@ select {
 
 /* ---------------------------------------------------------------- meter */
 
+.quota-rails {
+  display: grid;
+  gap: 6px;
+}
+
 /* One fixed grid so every row lines up down the list, in every state. */
 .meter {
   display: grid;

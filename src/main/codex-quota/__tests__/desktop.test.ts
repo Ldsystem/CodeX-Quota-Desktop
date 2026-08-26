@@ -23,8 +23,17 @@ describe('isDesktopRunning', () => {
   })
 
   it('recognises either app by its bundle path when the process name does not match', async () => {
-    const byPath = pgrep(['/Applications/ChatGPT.app/Contents/MacOS/'])
+    const byPath = async (args: readonly string[]): Promise<void> => {
+      const query = args[args.length - 1] ?? ''
+      if (query.startsWith('^/Applications/ChatGPT\\.app/Contents/MacOS/ChatGPT')) return
+      throw new Error('no process matched')
+    }
     await expect(isDesktopRunning({ platform: 'darwin', run: byPath })).resolves.toBe(true)
+  })
+
+  it('does not count a lingering helper under the app bundle as Desktop running', async () => {
+    const helperOnly = pgrep(['/Applications/ChatGPT.app/Contents/MacOS/'])
+    await expect(isDesktopRunning({ platform: 'darwin', run: helperOnly })).resolves.toBe(false)
   })
 
   it('reports nothing running when no probe matches', async () => {

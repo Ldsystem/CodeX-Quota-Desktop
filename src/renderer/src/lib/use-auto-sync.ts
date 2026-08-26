@@ -21,7 +21,7 @@ import {
   MIN_SAMPLE_GAP_MS,
   classifyWindow,
   shouldPrime,
-  syncIntervalMs
+  syncDelayMs
 } from '../../../shared/auto-sync'
 import type { WindowSample, WindowState } from '../../../shared/auto-sync'
 import type { WorkbenchState } from './use-workbench'
@@ -38,8 +38,10 @@ export function useAutoSync(
 ): Record<string, WindowState> {
   const prime = options.prime ?? false
   const [states, setStates] = useState<Record<string, WindowState>>({})
+  const [syncPass, setSyncPass] = useState(0)
   const samples = useRef<Record<string, WindowSample>>({})
   const primedAt = useRef<Record<string, number>>({})
+  const wasEnabled = useRef(enabled)
 
   // The effects below drive the bench without depending on its identity, which
   // changes on every render and would restart the timer before it ever fired.
@@ -59,9 +61,11 @@ export function useAutoSync(
       }
 
       const report = account.quota.report
+      const window = report.windows[0]
+      if (!window) continue
       const current: WindowSample = {
-        resetAt: report.window.resetAt,
-        usedPercent: report.window.usedPercent,
+        resetAt: window.resetAt,
+        usedPercent: window.usedPercent,
         // When the reading was taken, not when this ran: the comparison is
         // between two observations of the server, not two renders.
         at: Date.parse(report.fetchedAt)
@@ -89,14 +93,21 @@ export function useAutoSync(
   // Re-armed rather than repeating, so the cadence can follow the verdicts:
   // often while something is still undecided, sparingly once all is known.
   useEffect(() => {
+    const previous = wasEnabled.current
+    wasEnabled.current = enabled
     if (!enabled) return undefined
 
     const timer = window.setTimeout(
-      () => latest.current.refreshAll(),
-      syncIntervalMs(Object.values(states))
+      () => {
+        latest.current.refreshAll()
+        // A completed timeout must cause another effect pass even when the
+        // refreshed windows keep the same classifications.
+        setSyncPass((current) => current + 1)
+      },
+      syncDelayMs(Object.values(states), previous, enabled)
     )
     return () => window.clearTimeout(timer)
-  }, [enabled, states])
+  }, [enabled, states, syncPass])
 
   useEffect(() => {
     if (!enabled || !prime) return

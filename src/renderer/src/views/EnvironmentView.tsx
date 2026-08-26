@@ -29,7 +29,7 @@ export function EnvironmentView({ environment }: EnvironmentViewProps): React.JS
         <div className="fact-column">
           <Toggle
             label="Keep accounts in sync automatically"
-            hint="Re-reads usage every two minutes while anything is still undecided, then every ten once all windows are known to be counting."
+            hint="Refreshes immediately when enabled, then every two minutes while anything is undecided and every five minutes once all windows are counting."
             checked={preferences.autoSync}
             onChange={(next) => change({ autoSync: next })}
           />

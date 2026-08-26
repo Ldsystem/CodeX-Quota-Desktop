@@ -27,8 +27,8 @@ import type {
 } from '../../../shared/codex-quota'
 
 const HOUR = 3600
+const FIVE_HOURS = 18_000
 const WEEK = 604_800
-const MONTH = 2_592_000
 const TOKEN_USAGE_AVAILABLE = true
 
 function inHours(hours: number): number {
@@ -177,7 +177,10 @@ function seedQuota(): Record<string, QuotaSeed> {
         email: 'codex.plus01@hey.com',
         plan: 'plus',
         subscriptionExpiresOn: '2026-11-04',
-        window: { usedPercent: 77, resetAt: inHours(69), limitWindowSeconds: WEEK, exhausted: false },
+        windows: [
+          { usedPercent: 32, resetAt: inHours(2), limitWindowSeconds: FIVE_HOURS, exhausted: false },
+          { usedPercent: 77, resetAt: inHours(69), limitWindowSeconds: WEEK, exhausted: false }
+        ],
         availableResetCredits: 1,
         tokenUsage: seedTokenUsage(3, 96),
         source: 'codex-oauth',
@@ -190,7 +193,10 @@ function seedQuota(): Record<string, QuotaSeed> {
         email: 'codex.plus02@hey.com',
         plan: 'plus',
         subscriptionExpiresOn: '2026-09-19',
-        window: { usedPercent: 41, resetAt: inHours(102), limitWindowSeconds: WEEK, exhausted: false },
+        windows: [
+          { usedPercent: 64, resetAt: inHours(4), limitWindowSeconds: FIVE_HOURS, exhausted: false },
+          { usedPercent: 41, resetAt: inHours(102), limitWindowSeconds: WEEK, exhausted: false }
+        ],
         availableResetCredits: 0,
         tokenUsage: seedTokenUsage(11, 58),
         source: 'codex-oauth',
@@ -203,7 +209,10 @@ function seedQuota(): Record<string, QuotaSeed> {
         email: 'rui.tan@northloop.dev',
         plan: 'pro',
         subscriptionExpiresOn: '2027-02-28',
-        window: { usedPercent: 8, resetAt: inHours(121), limitWindowSeconds: WEEK, exhausted: false },
+        windows: [
+          { usedPercent: 18, resetAt: inHours(3), limitWindowSeconds: FIVE_HOURS, exhausted: false },
+          { usedPercent: 8, resetAt: inHours(121), limitWindowSeconds: WEEK, exhausted: false }
+        ],
         availableResetCredits: 3,
         tokenUsage: seedTokenUsage(23, 180),
         source: 'codex-oauth',
@@ -247,7 +256,7 @@ export class FixtureCodexQuotaService implements CodexQuotaService {
           email: null,
           plan: null,
           subscriptionExpiresOn: null,
-          window: { usedPercent: null, resetAt: null, limitWindowSeconds: null, exhausted: false },
+          windows: [],
           availableResetCredits: null,
           tokenUsage: null,
           source: 'unknown' as const,
@@ -304,7 +313,10 @@ export class FixtureCodexQuotaService implements CodexQuotaService {
         email: 'codex.plus01@hey.com',
         plan: 'plus',
         subscriptionExpiresOn: '2026-11-04',
-        window: { usedPercent: 77, resetAt: inHours(69), limitWindowSeconds: WEEK, exhausted: false },
+        windows: [
+          { usedPercent: 32, resetAt: inHours(2), limitWindowSeconds: FIVE_HOURS, exhausted: false },
+          { usedPercent: 77, resetAt: inHours(69), limitWindowSeconds: WEEK, exhausted: false }
+        ],
         availableResetCredits: 1,
         tokenUsage: seedTokenUsage(3, 96),
         source: 'codex-oauth',
@@ -341,7 +353,10 @@ export class FixtureCodexQuotaService implements CodexQuotaService {
         email: `${account}@example.com`,
         plan: 'plus',
         subscriptionExpiresOn: '2027-01-15',
-        window: { usedPercent: 0, resetAt: null, limitWindowSeconds: MONTH, exhausted: false },
+        windows: [
+          { usedPercent: 0, resetAt: null, limitWindowSeconds: FIVE_HOURS, exhausted: false },
+          { usedPercent: 0, resetAt: null, limitWindowSeconds: WEEK, exhausted: false }
+        ],
         availableResetCredits: 0,
         tokenUsage: null,
         source: 'codex-oauth',
@@ -361,13 +376,19 @@ export class FixtureCodexQuotaService implements CodexQuotaService {
   async startQuotaWindow(account: string): Promise<ActionOutcome> {
     const seed = this.quota[account]
     if (seed?.report) {
-      seed.report = { ...seed.report, window: { ...seed.report.window, resetAt: inHours(168) } }
+      seed.report = {
+        ...seed.report,
+        windows: seed.report.windows.map((window) => ({
+          ...window,
+          resetAt: inHours((window.limitWindowSeconds ?? WEEK) / HOUR)
+        }))
+      }
     }
     return delay(
       {
         ok: true,
         title: `Quota window started for ${account}`,
-        detail: 'One minimal request was billed. The weekly window now counts from this moment.'
+        detail: 'One minimal request was billed. The quota windows now count from this moment.'
       },
       3100
     )

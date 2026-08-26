@@ -3,12 +3,28 @@ import { describe, expect, it } from 'vitest'
 import type { AccountView, QuotaReport, QuotaState } from '../codex-quota'
 import { trayTitle } from '../codex-quota'
 
-function report(usedPercent: number | null, exhausted = false): QuotaReport {
+function report(
+  usedPercent: number | null,
+  exhausted = false,
+  additionalUsedPercent?: number
+): QuotaReport {
   return {
     email: null,
     plan: 'plus',
     subscriptionExpiresOn: null,
-    window: { usedPercent, resetAt: null, limitWindowSeconds: 604_800, exhausted },
+    windows: [
+      { usedPercent, resetAt: null, limitWindowSeconds: 18_000, exhausted },
+      ...(additionalUsedPercent === undefined
+        ? []
+        : [
+            {
+              usedPercent: additionalUsedPercent,
+              resetAt: null,
+              limitWindowSeconds: 604_800,
+              exhausted: false
+            }
+          ])
+    ],
     availableResetCredits: null,
     tokenUsage: null,
     source: 'codex-oauth',
@@ -41,6 +57,11 @@ describe('trayTitle', () => {
     ]
 
     expect(trayTitle(accounts)).toBe('23%')
+  })
+
+  it('shows the tightest headroom when the account has two limits', () => {
+    const live: QuotaState = { status: 'ready', report: report(20, false, 72) }
+    expect(trayTitle([account('live', live, 'yes')])).toBe('28%')
   })
 
   it('marks the figure as a stand-in when no account is in use', () => {
