@@ -167,11 +167,15 @@ export function AccountPage({
                 value={report ? formatExpiry(report.subscriptionExpiresOn) : null}
                 pending={quota.status === 'loading'}
               />
-              <Fact
-                label={`${report ? describeWindow(report.window.limitWindowSeconds) : 'Quota'} window resets`}
-                value={report ? formatResetAt(report.window.resetAt, now) : null}
-                pending={quota.status === 'loading'}
-              />
+              {report
+                ? report.windows.map((window, index) => (
+                    <Fact
+                      key={`${window.limitWindowSeconds ?? 'unknown'}-${index}`}
+                      label={`${describeWindow(window.limitWindowSeconds)} resets`}
+                      value={formatResetAt(window.resetAt, now)}
+                    />
+                  ))
+                : <Fact label="Quota resets" value={null} pending={quota.status === 'loading'} />}
               <Fact
                 label="Resets available"
                 value={resetCreditsLabel(report)}

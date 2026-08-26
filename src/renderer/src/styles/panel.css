@@ -1,7 +1,7 @@
 /*
  * The menu bar panel.
  *
- * Everything here is scoped to the panel window, which is 380x468 and never
+ * Everything here is scoped to the panel window, which is 380x306 and never
  * resizes. It borrows the workbench's tokens and controls so the two surfaces
  * do not read as different products, and adds only what a fixed-size deck
  * needs.
@@ -133,8 +133,8 @@
 .card {
   display: grid;
   align-content: start;
-  gap: var(--space-3);
-  padding: var(--space-3);
+  gap: var(--space-2);
+  padding: 10px;
   border: 1px solid var(--border);
   border-radius: var(--radius-panel);
   background: var(--surface);
@@ -178,7 +178,7 @@
 .card__actions {
   display: grid;
   justify-items: center;
-  gap: var(--space-2);
+  gap: var(--space-1);
 }
 
 .card__actions .button {
@@ -195,9 +195,50 @@
 
 .card__note {
   margin: 0;
-  min-height: 2.4em;
+  min-height: 0;
   font-size: var(--text-2xs);
   line-height: 1.4;
   color: var(--fg-muted);
   text-align: center;
+}
+
+/* The fixed panel has its own information hierarchy: short window label,
+   exact reset, and percentage share one line; the rail owns the next line. */
+.body--panel .quota-rails {
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.body--panel .meter--compact {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    'label reset value'
+    'track track track';
+  column-gap: var(--space-2);
+  row-gap: 3px;
+  min-width: 0;
+}
+
+.body--panel .meter--compact .meter__label {
+  grid-area: label;
+  white-space: nowrap;
+}
+
+.body--panel .meter--compact .meter__track {
+  grid-area: track;
+  min-width: 0;
+}
+
+.body--panel .meter--compact .meter__reset {
+  grid-area: reset;
+  min-width: 0;
+  line-height: 1.2;
+  overflow: hidden;
+  text-align: right;
+  text-overflow: ellipsis;
+}
+
+.body--panel .meter--compact .meter__value {
+  grid-area: value;
+  line-height: 1.2;
 }

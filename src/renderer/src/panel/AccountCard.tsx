@@ -85,7 +85,7 @@ export function AccountCard({
         ) : null}
       </header>
 
-      <QuotaMeter state={quota} now={now} onRetry={onRetryQuota} />
+      <QuotaMeter state={quota} now={now} compact onRetry={onRetryQuota} />
 
       {warnings.length > 0 ? (
         <div className="card__warnings">

@@ -19,9 +19,9 @@ export type ProcessProbe = (args: readonly string[]) => Promise<void>
 
 const PROBES: readonly string[][] = [
   ['-x', 'ChatGPT'],
-  ['-f', '/Applications/ChatGPT.app/Contents/MacOS/'],
+  ['-f', '^/Applications/ChatGPT\\.app/Contents/MacOS/ChatGPT([[:space:]]|$)'],
   ['-x', 'Codex'],
-  ['-f', '/Applications/Codex.app/Contents/MacOS/']
+  ['-f', '^/Applications/Codex\\.app/Contents/MacOS/Codex([[:space:]]|$)']
 ]
 
 /** Image names recorded by task-001 / OQ-001; tasklist filters on these. */

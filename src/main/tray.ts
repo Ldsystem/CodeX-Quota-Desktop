@@ -47,7 +47,7 @@ function buildMenu(handlers: TrayHandlers, preferences: ShellPreferences): Menu 
       label: 'Automatic sync',
       type: 'checkbox',
       toolTip:
-        'Re-reads usage every couple of minutes, and starts a quota window that never started so its reset comes sooner.',
+        'Refreshes usage at least every five minutes, and starts a quota window that never started so its reset comes sooner.',
       checked: preferences.autoSync,
       click: (item) => handlers.onToggleAutoSync(item.checked)
     },

@@ -28,12 +28,7 @@ export type WarningLabel =
 
 export type QuotaSource = 'codex-oauth' | 'codex-oauth-partial' | 'unknown'
 
-/**
- * Codex no longer enforces a rolling 5-hour limit; the usage API now reports a
- * single allowance window whose length depends on the plan (a week on paid
- * plans, a month on free), so the length travels with the numbers rather than
- * being assumed.
- */
+/** One allowance window. Its duration travels with the values from the API. */
 export interface QuotaWindow {
   /** 0-100, or null when the usage API did not return a figure. */
   usedPercent: number | null
@@ -90,7 +85,8 @@ export interface QuotaReport {
   plan: string | null
   /** ISO date (yyyy-mm-dd) parsed from the id_token subscription claim. */
   subscriptionExpiresOn: string | null
-  window: QuotaWindow
+  /** Shortest to longest; normally the 5-hour window followed by the weekly one. */
+  windows: QuotaWindow[]
   /** Codex Desktop calls these "available resets". */
   availableResetCredits: number | null
   /** Null when the account reports no token history. */
@@ -285,7 +281,15 @@ export function isQuotaSpent(quota: QuotaState): boolean {
   // An unread window is unknown, not empty; assuming the worst would make
   // counts jump around as background fetches land.
   if (quota.status !== 'ready') return false
-  return quotaPercentLeft(quota.report.window) === 0
+  return quota.report.windows.some((window) => quotaPercentLeft(window) === 0)
+}
+
+/** The tightest readable limit is the headroom the account can actually spend. */
+export function quotaReportPercentLeft(report: QuotaReport): number | null {
+  const readable = report.windows
+    .map(quotaPercentLeft)
+    .filter((percent): percent is number => percent !== null)
+  return readable.length === 0 ? null : Math.min(...readable)
 }
 
 /**
@@ -326,7 +330,7 @@ export function trayTitle(accounts: readonly AccountView[]): string {
 }
 
 function readPercentLeft(account: AccountView): number | null {
-  return account.quota.status === 'ready' ? quotaPercentLeft(account.quota.report.window) : null
+  return account.quota.status === 'ready' ? quotaReportPercentLeft(account.quota.report) : null
 }
 
 export interface ActionAvailability {

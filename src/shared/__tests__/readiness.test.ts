@@ -8,12 +8,28 @@ import {
   type QuotaState
 } from '../codex-quota'
 
-function ready(usedPercent: number | null, exhausted = false): QuotaState {
+function ready(
+  usedPercent: number | null,
+  exhausted = false,
+  additionalUsedPercent?: number
+): QuotaState {
   const report: QuotaReport = {
     email: null,
     plan: 'plus',
     subscriptionExpiresOn: null,
-    window: { usedPercent, resetAt: null, limitWindowSeconds: 604800, exhausted },
+    windows: [
+      { usedPercent, resetAt: null, limitWindowSeconds: 18_000, exhausted },
+      ...(additionalUsedPercent === undefined
+        ? []
+        : [
+            {
+              usedPercent: additionalUsedPercent,
+              resetAt: null,
+              limitWindowSeconds: 604_800,
+              exhausted: false
+            }
+          ])
+    ],
     availableResetCredits: null,
     tokenUsage: null,
     source: 'codex-oauth',
@@ -55,6 +71,11 @@ describe('quota headroom', () => {
     expect(isQuotaSpent(ready(99.7))).toBe(true)
     expect(isQuotaSpent(ready(94, true))).toBe(true)
     expect(isQuotaSpent(ready(99))).toBe(false)
+  })
+
+  it('counts the account as spent when either reported window is exhausted', () => {
+    expect(isQuotaSpent(ready(20, false, 100))).toBe(true)
+    expect(isQuotaSpent(ready(20, false, 40))).toBe(false)
   })
 
   it('treats an unfetched window as unknown rather than spent', () => {

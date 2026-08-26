@@ -70,7 +70,7 @@ describe('quota 401 refresh', () => {
 
     const report = await service.fetchQuota('work')
 
-    expect(report.window.usedPercent).toBe(8)
+    expect(report.windows[0]?.usedPercent).toBe(8)
     expect(await readFile(accountAuthPath(scratch.paths, 'work'), 'utf8')).toBe(
       await readFile(scratch.paths.liveAuth, 'utf8')
     )

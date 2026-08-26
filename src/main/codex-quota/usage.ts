@@ -5,17 +5,15 @@
  * missing or malformed one degrades to null rather than to a zero the UI would
  * render as fact.
  *
- * Live responses now carry the whole allowance in `primary_window` and leave
- * `secondary_window` null, which is the reverse of what the bash CLI assumed
- * back when a 5-hour window existed alongside a weekly one. Whichever window is
- * populated wins, and its `limit_window_seconds` says what to call it.
+ * Both API slots are optional. Every populated window is kept, and its own
+ * `limit_window_seconds` says what to call it rather than the slot name.
  */
 
 import type { QuotaWindow } from '../../shared/codex-quota'
 
 export interface MappedUsage {
   plan: string | null
-  window: QuotaWindow
+  windows: QuotaWindow[]
   availableResetCredits: number | null
   /** False when the response reported no allowance at all. */
   usable: boolean
@@ -37,30 +35,39 @@ function asText(value: unknown): string | null {
   return typeof value === 'string' && value.length > 0 ? value : null
 }
 
-function readWindow(value: unknown, exhausted: boolean): QuotaWindow {
+function readWindow(value: unknown): QuotaWindow {
   const window = asRecord(value)
   return {
     usedPercent: asNumber(window?.used_percent),
     resetAt: asNumber(window?.reset_at),
     limitWindowSeconds: asNumber(window?.limit_window_seconds),
-    exhausted
+    exhausted: false
   }
 }
 
 export function mapUsageResponse(body: unknown): MappedUsage {
   const root = asRecord(body) ?? {}
   const rateLimit = asRecord(root.rate_limit)
-  const exhausted = rateLimit?.limit_reached === true
-  const primary = readWindow(rateLimit?.primary_window, exhausted)
-  const secondary = readWindow(rateLimit?.secondary_window, exhausted)
-  const window = primary.usedPercent === null && secondary.usedPercent !== null ? secondary : primary
+  const windows = [readWindow(rateLimit?.primary_window), readWindow(rateLimit?.secondary_window)]
+    .filter((window) => window.usedPercent !== null)
+
+  if (rateLimit?.limit_reached === true && windows.length > 0) {
+    const limiting = windows.reduce((most, window, index) =>
+      (window.usedPercent ?? -1) > (windows[most]?.usedPercent ?? -1) ? index : most
+    , 0)
+    windows[limiting] = { ...windows[limiting], exhausted: true }
+  }
+
+  windows.sort(
+    (a, b) => (a.limitWindowSeconds ?? Number.POSITIVE_INFINITY) -
+      (b.limitWindowSeconds ?? Number.POSITIVE_INFINITY)
+  )
   const plan = asText(root.plan_type)
 
   return {
     plan: plan === null ? null : plan.toLowerCase(),
-    window,
+    windows,
     availableResetCredits: asNumber(asRecord(root.rate_limit_reset_credits)?.available_count),
-    usable: window.usedPercent !== null
+    usable: windows.length > 0
   }
 }
-

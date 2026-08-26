@@ -66,7 +66,7 @@ function report(
     email: subscription.email,
     plan: subscription.plan,
     subscriptionExpiresOn: subscription.expiresOn,
-    window: { usedPercent: null, resetAt: null, limitWindowSeconds: null, exhausted: false },
+    windows: [],
     availableResetCredits: null,
     tokenUsage: null,
     source,
@@ -219,7 +219,7 @@ export function createCodexQuotaService(
           { ...subscription, plan: usage.plan ?? subscription.plan },
           [],
           {
-            window: usage.window,
+            windows: usage.windows,
             availableResetCredits: usage.availableResetCredits,
             tokenUsage
           }

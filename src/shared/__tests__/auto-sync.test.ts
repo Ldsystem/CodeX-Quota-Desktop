@@ -6,6 +6,7 @@ import {
   SYNC_INTERVAL_MS,
   classifyWindow,
   shouldPrime,
+  syncDelayMs,
   syncIntervalMs
 } from '../auto-sync'
 import type { WindowSample } from '../auto-sync'
@@ -104,6 +105,11 @@ describe('shouldPrime', () => {
 })
 
 describe('syncIntervalMs', () => {
+  it('refreshes immediately when automatic sync changes from off to on', () => {
+    expect(syncDelayMs(['running'], false, true)).toBe(0)
+    expect(syncDelayMs(['running'], true, true)).toBe(IDLE_SYNC_INTERVAL_MS)
+  })
+
   it('samples often while any window is still undecided or waiting to be primed', () => {
     expect(syncIntervalMs(['running', 'unknown'])).toBe(SYNC_INTERVAL_MS)
     expect(syncIntervalMs(['running', 'not-started'])).toBe(SYNC_INTERVAL_MS)
@@ -111,6 +117,7 @@ describe('syncIntervalMs', () => {
 
   it('backs off once every window is known to be counting', () => {
     expect(syncIntervalMs(['running', 'running'])).toBe(IDLE_SYNC_INTERVAL_MS)
+    expect(IDLE_SYNC_INTERVAL_MS).toBe(5 * MINUTE)
   })
 
   it('does not poll eagerly with nothing to watch', () => {
