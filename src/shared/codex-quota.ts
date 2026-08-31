@@ -262,6 +262,15 @@ export function validateAccountName(name: string, existing: readonly string[] = 
   return null
 }
 
+export const FIVE_HOUR_WINDOW_SECONDS = 18_000
+
+export function fiveHourWindow(
+  source: readonly QuotaWindow[] | Pick<QuotaReport, 'windows'>
+): QuotaWindow | null {
+  const windows = 'windows' in source ? source.windows : source
+  return windows.find((window) => window.limitWindowSeconds === FIVE_HOUR_WINDOW_SECONDS) ?? null
+}
+
 /**
  * Headroom as the meter shows it: percent of the window still available.
  *
@@ -330,7 +339,9 @@ export function trayTitle(accounts: readonly AccountView[]): string {
 }
 
 function readPercentLeft(account: AccountView): number | null {
-  return account.quota.status === 'ready' ? quotaReportPercentLeft(account.quota.report) : null
+  if (account.quota.status !== 'ready') return null
+  const window = fiveHourWindow(account.quota.report)
+  return window === null ? null : quotaPercentLeft(window)
 }
 
 export interface ActionAvailability {

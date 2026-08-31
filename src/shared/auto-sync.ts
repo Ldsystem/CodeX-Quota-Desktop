@@ -14,6 +14,8 @@
  * second thing running in the background.
  */
 
+import { FIVE_HOUR_WINDOW_SECONDS } from './codex-quota'
+
 export type WindowState =
   /** Not enough evidence yet; one more sample decides it. */
   | 'unknown'
@@ -46,9 +48,19 @@ export const MIN_SAMPLE_GAP_MS = 30_000
  * while staying far below the jump a genuinely new window produces.
  */
 const SLIDE_TOLERANCE_MS = 30_000
+const FIVE_HOUR_MS = FIVE_HOUR_WINDOW_SECONDS * 1_000
+/** How far a resetAt jump may miss 18000 seconds and still count as a five-hour reset. */
+const RESET_JUMP_TOLERANCE_MS = 120_000
 
 /** Long enough that a window which refuses to start is not retried all day. */
 export const PRIME_COOLDOWN_MS = 6 * 60 * 60_000
+
+function isFiveHourResetJump(previous: WindowSample, current: WindowSample): boolean {
+  if (current.usedPercent !== 0) return false
+  if (previous.resetAt === null || current.resetAt === null) return false
+  const moved = (current.resetAt - previous.resetAt) * 1_000
+  return Math.abs(Math.abs(moved) - FIVE_HOUR_MS) <= RESET_JUMP_TOLERANCE_MS
+}
 
 export function classifyWindow(previous: WindowSample | null, current: WindowSample): WindowState {
   // Something has been billed, so the window is unambiguously under way. This
@@ -57,6 +69,8 @@ export function classifyWindow(previous: WindowSample | null, current: WindowSam
 
   if (current.resetAt === null) return 'not-started'
   if (previous === null || previous.resetAt === null) return 'unknown'
+
+  if (isFiveHourResetJump(previous, current)) return 'not-started'
 
   const elapsed = current.at - previous.at
   if (elapsed < MIN_SAMPLE_GAP_MS) return 'unknown'
@@ -107,7 +121,29 @@ export function syncIntervalMs(states: readonly WindowState[]): number {
 export function syncDelayMs(
   states: readonly WindowState[],
   wasEnabled: boolean,
-  enabled: boolean
+  enabled: boolean,
+  fiveHourResetAt: number | null = null,
+  now: number = Date.now()
 ): number {
-  return enabled && !wasEnabled ? 0 : syncIntervalMs(states)
+  if (enabled && !wasEnabled) return 0
+  const cadence = syncIntervalMs(states)
+  if (fiveHourResetAt === null) return cadence
+  const untilResetMs = fiveHourResetAt * 1_000 - now
+  if (untilResetMs <= 0) return MIN_SAMPLE_GAP_MS
+  return Math.max(MIN_SAMPLE_GAP_MS, Math.min(cadence, untilResetMs))
+}
+
+/**
+ * Which sample to keep as the next comparison baseline. A five-hour reset
+ * always replaces the expired window, even if the pair is closer together
+ * than the usual gap.
+ */
+export function recordWindowSample(
+  previous: WindowSample | null,
+  current: WindowSample
+): WindowSample {
+  if (previous === null) return current
+  if (isFiveHourResetJump(previous, current)) return current
+  if (current.at - previous.at >= MIN_SAMPLE_GAP_MS) return current
+  return previous
 }

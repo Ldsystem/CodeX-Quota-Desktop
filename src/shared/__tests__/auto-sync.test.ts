@@ -2,14 +2,17 @@ import { describe, expect, it } from 'vitest'
 
 import {
   IDLE_SYNC_INTERVAL_MS,
+  MIN_SAMPLE_GAP_MS,
   PRIME_COOLDOWN_MS,
   SYNC_INTERVAL_MS,
   classifyWindow,
+  recordWindowSample,
   shouldPrime,
   syncDelayMs,
   syncIntervalMs
 } from '../auto-sync'
 import type { WindowSample } from '../auto-sync'
+import { fiveHourWindow } from '../codex-quota'
 
 const MINUTE = 60_000
 
@@ -32,11 +35,21 @@ describe('classifyWindow', () => {
     expect(classifyWindow(previous, current)).toBe('running')
   })
 
-  it('reads a jump far larger than the elapsed time as a fresh window, not a slide', () => {
-    const previous = sample({ resetAt: 1_800_000_000, at: 0 })
-    const current = sample({ resetAt: 1_800_000_000 + 604_800, at: 2 * MINUTE })
+  it('reads a five-hour reset jump with used 0 as a window that has not started', () => {
+    const previous = sample({ resetAt: 1_800_000_000, usedPercent: 97, at: 0 })
+    const current = sample({ resetAt: 1_800_000_000 + 18_000, usedPercent: 0, at: 2 * MINUTE })
 
-    expect(classifyWindow(previous, current)).toBe('running')
+    expect(classifyWindow(previous, current)).toBe('not-started')
+    expect(
+      shouldPrime({
+        autoSync: true,
+        hasStoredAuth: true,
+        state: 'not-started',
+        busy: false,
+        lastPrimedAt: null,
+        now: 10 * PRIME_COOLDOWN_MS
+      })
+    ).toBe(true)
   })
 
   it('treats any recorded usage as proof the window is counting, with no history needed', () => {
@@ -102,6 +115,20 @@ describe('shouldPrime', () => {
     expect(shouldPrime({ ...eligible, lastPrimedAt: now - 60_000 })).toBe(false)
     expect(shouldPrime({ ...eligible, lastPrimedAt: now - PRIME_COOLDOWN_MS - 1 })).toBe(true)
   })
+
+  it('still blocks a failed prime that never reached running', () => {
+    expect(
+      shouldPrime({
+        ...eligible,
+        lastPrimedAt: eligible.now - 60_000,
+        state: 'not-started'
+      })
+    ).toBe(false)
+  })
+
+  it('primes after lastPrimedAt is cleared once the window was observed running', () => {
+    expect(shouldPrime({ ...eligible, lastPrimedAt: null, state: 'not-started' })).toBe(true)
+  })
 })
 
 describe('syncIntervalMs', () => {
@@ -122,5 +149,59 @@ describe('syncIntervalMs', () => {
 
   it('does not poll eagerly with nothing to watch', () => {
     expect(syncIntervalMs([])).toBe(IDLE_SYNC_INTERVAL_MS)
+  })
+
+  it('aims the delay at a five-hour reset instead of the idle interval', () => {
+    const now = 1_000_000
+    const resetAt = Math.floor(now / 1000) + 90
+    expect(syncDelayMs(['running'], true, true, resetAt, now)).toBe(90_000)
+    expect(syncDelayMs(['running'], true, true, resetAt, now)).toBeLessThan(IDLE_SYNC_INTERVAL_MS)
+  })
+
+  it('does not arm sooner than the sample gap even when reset is imminent', () => {
+    const now = 1_000_000
+    const resetAt = Math.floor(now / 1000) + 10
+    expect(syncDelayMs(['running'], true, true, resetAt, now)).toBe(MIN_SAMPLE_GAP_MS)
+  })
+})
+
+describe('recordWindowSample', () => {
+  it('replaces the stored baseline with the post-reset sample', () => {
+    const previous = sample({ resetAt: 1_800_000_000, usedPercent: 97, at: 0 })
+    const current = sample({ resetAt: 1_800_000_000 + 18_000, usedPercent: 0, at: 2 * MINUTE })
+    expect(classifyWindow(previous, current)).toBe('not-started')
+    expect(recordWindowSample(previous, current)).toEqual(current)
+  })
+
+  it('keeps the older sample when a non-reset pair is too close together', () => {
+    const previous = sample({ resetAt: 1_800_000_000, usedPercent: 3, at: 0 })
+    const current = sample({ resetAt: 1_800_000_000, usedPercent: 3, at: 900 })
+    expect(recordWindowSample(previous, current)).toEqual(previous)
+  })
+})
+
+describe('fiveHourWindow identity', () => {
+  it('selects the 18000-second window even when weekly is first', () => {
+    const weekly = {
+      usedPercent: 72,
+      resetAt: 1_800_604_800,
+      limitWindowSeconds: 604_800,
+      exhausted: false
+    }
+    const fiveHour = {
+      usedPercent: 0,
+      resetAt: 1_800_018_000,
+      limitWindowSeconds: 18_000,
+      exhausted: false
+    }
+    expect(fiveHourWindow([weekly, fiveHour])).toEqual(fiveHour)
+  })
+
+  it('does not substitute a weekly window', () => {
+    expect(
+      fiveHourWindow([
+        { usedPercent: 20, resetAt: 1_800_604_800, limitWindowSeconds: 604_800, exhausted: false }
+      ])
+    ).toBeNull()
   })
 })

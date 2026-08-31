@@ -18,12 +18,13 @@
 import { useEffect, useRef, useState } from 'react'
 
 import {
-  MIN_SAMPLE_GAP_MS,
   classifyWindow,
+  recordWindowSample,
   shouldPrime,
   syncDelayMs
 } from '../../../shared/auto-sync'
 import type { WindowSample, WindowState } from '../../../shared/auto-sync'
+import { fiveHourWindow } from '../../../shared/codex-quota'
 import type { WorkbenchState } from './use-workbench'
 
 export interface AutoSyncOptions {
@@ -61,7 +62,7 @@ export function useAutoSync(
       }
 
       const report = account.quota.report
-      const window = report.windows[0]
+      const window = fiveHourWindow(report)
       if (!window) continue
       const current: WindowSample = {
         resetAt: window.resetAt,
@@ -79,12 +80,8 @@ export function useAutoSync(
 
       const verdict = classifyWindow(previous, current)
       next[account.account] = verdict === 'unknown' ? (known ?? 'unknown') : verdict
-
-      // A sample too close to the last one is kept out of the record, or the
-      // baseline would keep being replaced by one too recent to compare with.
-      if (previous === null || current.at - previous.at >= MIN_SAMPLE_GAP_MS) {
-        samples.current[account.account] = current
-      }
+      if (verdict === 'running') delete primedAt.current[account.account]
+      samples.current[account.account] = recordWindowSample(previous, current)
     }
 
     setStates((current) => (same(current, next) ? current : next))
@@ -104,7 +101,7 @@ export function useAutoSync(
         // refreshed windows keep the same classifications.
         setSyncPass((current) => current + 1)
       },
-      syncDelayMs(Object.values(states), previous, enabled)
+      syncDelayMs(Object.values(states), previous, enabled, soonestFiveHourResetAt(latest.current), Date.now())
     )
     return () => window.clearTimeout(timer)
   }, [enabled, states, syncPass])
@@ -132,6 +129,17 @@ export function useAutoSync(
   }, [enabled, prime, states])
 
   return states
+}
+
+function soonestFiveHourResetAt(bench: WorkbenchState): number | null {
+  let soonest: number | null = null
+  for (const account of bench.accounts) {
+    if (account.quota.status !== 'ready') continue
+    const resetAt = fiveHourWindow(account.quota.report)?.resetAt
+    if (resetAt === null || resetAt === undefined) continue
+    if (soonest === null || resetAt < soonest) soonest = resetAt
+  }
+  return soonest
 }
 
 function same(a: Record<string, WindowState>, b: Record<string, WindowState>): boolean {
