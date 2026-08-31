@@ -47,6 +47,22 @@ function account(name: string, quota: QuotaState, active: AccountView['active'] 
   }
 }
 
+function weeklyOnly(usedPercent: number): QuotaReport {
+  return {
+    email: null,
+    plan: 'plus',
+    subscriptionExpiresOn: null,
+    windows: [
+      { usedPercent, resetAt: null, limitWindowSeconds: 604_800, exhausted: false }
+    ],
+    availableResetCredits: null,
+    tokenUsage: null,
+    source: 'codex-oauth',
+    warnings: [],
+    fetchedAt: '2026-08-13T00:00:00.000Z'
+  }
+}
+
 const ready = (percentUsed: number): QuotaState => ({ status: 'ready', report: report(percentUsed) })
 
 describe('trayTitle', () => {
@@ -59,9 +75,19 @@ describe('trayTitle', () => {
     expect(trayTitle(accounts)).toBe('23%')
   })
 
-  it('shows the tightest headroom when the account has two limits', () => {
+  it('shows five-hour remaining when the account also has a tighter weekly limit', () => {
     const live: QuotaState = { status: 'ready', report: report(20, false, 72) }
-    expect(trayTitle([account('live', live, 'yes')])).toBe('28%')
+    expect(trayTitle([account('live', live, 'yes')])).toBe('80%')
+  })
+
+  it('is empty when the account in use has only a weekly window', () => {
+    const live: QuotaState = { status: 'ready', report: weeklyOnly(20) }
+    expect(trayTitle([account('live', live, 'yes')])).toBe('')
+  })
+
+  it('marks a stand-in with five-hour remaining, not the tighter weekly figure', () => {
+    const spare: QuotaState = { status: 'ready', report: report(20, false, 72) }
+    expect(trayTitle([account('spare', spare)])).toBe('↑80%')
   })
 
   it('marks the figure as a stand-in when no account is in use', () => {
