@@ -52,6 +52,12 @@ const CONFIRMATIONS: Partial<
     body: 'One minimal request is billed to this account so its quota window starts counting now.',
     confirmLabel: 'Start window',
     destructive: false
+  }),
+  'invoke-reset': (account) => ({
+    title: `Invoke an available reset for ${account}?`,
+    body: 'This spends one available reset so this account’s rate-limit windows reset now.',
+    confirmLabel: 'Invoke reset',
+    destructive: false
   })
 }
 
@@ -172,6 +178,7 @@ export default function App(): React.JSX.Element {
             onRetryQuota={bench.refreshQuota}
             onRetryRegistry={bench.refreshAll}
             onAddAccount={() => setAddOpen(true)}
+            onAction={requestAction}
           />
         ) : null}
 

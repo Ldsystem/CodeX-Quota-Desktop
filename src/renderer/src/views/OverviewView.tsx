@@ -11,6 +11,7 @@ import {
 import {
   isQuotaSpent,
   isReadyToSwitch,
+  type AccountActionId,
   type AccountView,
   type EnvironmentSnapshot
 } from '../../../shared/codex-quota'
@@ -29,6 +30,7 @@ interface OverviewViewProps {
   onRetryQuota: (account: string) => void
   onRetryRegistry: () => void
   onAddAccount: () => void
+  onAction: (action: AccountActionId, account: string) => void
 }
 
 export function OverviewView({
@@ -40,7 +42,8 @@ export function OverviewView({
   onOpenAccount,
   onRetryQuota,
   onRetryRegistry,
-  onAddAccount
+  onAddAccount,
+  onAction
 }: OverviewViewProps): React.JSX.Element {
   if (registryStatus === 'failed') {
     return (
@@ -167,8 +170,10 @@ export function OverviewView({
             account={account}
             job={jobFor(account.account)}
             now={now}
+            environment={environment}
             onOpen={onOpenAccount}
             onRetryQuota={onRetryQuota}
+            onAction={onAction}
           />
         ))}
       </section>

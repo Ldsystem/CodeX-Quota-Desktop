@@ -23,6 +23,7 @@ const CHANNEL = {
   activate: 'codex-quota:activate',
   login: 'codex-quota:login',
   startQuotaWindow: 'codex-quota:start-quota-window',
+  invokeResetCredits: 'codex-quota:invoke-reset-credits',
   logout: 'codex-quota:logout',
   deleteStoredAuth: 'codex-quota:delete-stored-auth',
   removeAccount: 'codex-quota:remove-account'
@@ -49,6 +50,7 @@ const service: CodexQuotaService = {
   activate: (account, options) => invoke(CHANNEL.activate, account, options),
   login: (account) => invoke(CHANNEL.login, account),
   startQuotaWindow: (account) => invoke(CHANNEL.startQuotaWindow, account),
+  invokeResetCredits: (account) => invoke(CHANNEL.invokeResetCredits, account),
   logout: (account) => invoke(CHANNEL.logout, account),
   deleteStoredAuth: (account) => invoke(CHANNEL.deleteStoredAuth, account),
   removeAccount: (account) => invoke(CHANNEL.removeAccount, account)

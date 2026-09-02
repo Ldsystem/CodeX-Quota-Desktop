@@ -18,6 +18,7 @@ export const CHANNEL = {
   activate: 'codex-quota:activate',
   login: 'codex-quota:login',
   startQuotaWindow: 'codex-quota:start-quota-window',
+  invokeResetCredits: 'codex-quota:invoke-reset-credits',
   logout: 'codex-quota:logout',
   deleteStoredAuth: 'codex-quota:delete-stored-auth',
   removeAccount: 'codex-quota:remove-account'
@@ -52,6 +53,7 @@ export function registerCodexQuotaIpc(service: CodexQuotaService): void {
   )
   handleMutation(CHANNEL.login, (account: string) => service.login(account))
   handleMutation(CHANNEL.startQuotaWindow, (account: string) => service.startQuotaWindow(account))
+  handleMutation(CHANNEL.invokeResetCredits, (account: string) => service.invokeResetCredits(account))
   handleMutation(CHANNEL.logout, (account: string) => service.logout(account))
   handleMutation(CHANNEL.deleteStoredAuth, (account: string) => service.deleteStoredAuth(account))
   handleMutation(CHANNEL.removeAccount, (account: string) => service.removeAccount(account))

@@ -394,6 +394,39 @@ export class FixtureCodexQuotaService implements CodexQuotaService {
     )
   }
 
+  async invokeResetCredits(account: string): Promise<ActionOutcome> {
+    const existing = this.quota[account]?.report
+    const count = existing?.availableResetCredits
+    if (existing === undefined || count === null || count === undefined || !(count > 0)) {
+      return delay(
+        {
+          ok: false,
+          title: `No consumable reset credit for ${account}`,
+          detail: 'Refresh quota, then try again when a reset is available.'
+        },
+        420
+      )
+    }
+    this.quota[account]!.report = {
+      ...existing,
+      availableResetCredits: count - 1,
+      windows: existing.windows.map((window) => ({
+        ...window,
+        usedPercent: 0,
+        exhausted: false,
+        resetAt: inHours((window.limitWindowSeconds ?? WEEK) / HOUR)
+      }))
+    }
+    return delay(
+      {
+        ok: true,
+        title: `Invoked a reset for ${account}`,
+        detail: 'One available reset was spent. Refresh to see the new windows.'
+      },
+      900
+    )
+  }
+
   async logout(account: string): Promise<ActionOutcome> {
     this.clearCredentials(account)
     return delay({ ok: true, title: `Signed out of ${account}` }, 1200)

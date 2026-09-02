@@ -3,7 +3,9 @@ import {
   isQuotaSpent,
   isReadyToSwitch,
   quotaPercentLeft,
+  resolveActionAvailability,
   type AccountView,
+  type EnvironmentSnapshot,
   type QuotaReport,
   type QuotaState
 } from '../codex-quota'
@@ -99,5 +101,61 @@ describe('readiness to switch', () => {
   it('counts an account whose quota has not been read yet', () => {
     // Withholding it would make the count shrink and grow as fetches land.
     expect(isReadyToSwitch(account({ status: 'loading' }))).toBe(true)
+  })
+})
+
+const environment: EnvironmentSnapshot = {
+  desktopRunning: false,
+  storageRoot: '~/.codex-quota',
+  liveAuthPath: '~/.codex/auth.json',
+  backupsPath: '~/.codex-quota/backups',
+  activeAccount: null,
+  codexBinary: '/usr/local/bin/codex',
+  proxyUrl: null,
+  usageApiUrl: 'https://chatgpt.com/backend-api/wham/usage',
+  windowStartModel: 'gpt-5-codex',
+  windowStartReasoningEffort: 'minimal'
+}
+
+function withCredits(count: number | null): QuotaState {
+  const state = ready(10)
+  if (state.status !== 'ready') return state
+  return { status: 'ready', report: { ...state.report, availableResetCredits: count } }
+}
+
+describe('invoke-reset availability', () => {
+  it('enables only a ready report with a finite count greater than zero and a stored credential', () => {
+    expect(resolveActionAvailability('invoke-reset', account(withCredits(2)), environment).enabled).toBe(
+      true
+    )
+    expect(resolveActionAvailability('invoke-reset', account(withCredits(1)), environment).enabled).toBe(
+      true
+    )
+  })
+
+  it('treats zero, unknown, unread, failed, and missing credentials as disabled', () => {
+    expect(resolveActionAvailability('invoke-reset', account(withCredits(0)), environment).enabled).toBe(
+      false
+    )
+    expect(
+      resolveActionAvailability('invoke-reset', account(withCredits(null)), environment).enabled
+    ).toBe(false)
+    expect(resolveActionAvailability('invoke-reset', account({ status: 'idle' }), environment).enabled).toBe(
+      false
+    )
+    expect(
+      resolveActionAvailability('invoke-reset', account({ status: 'loading' }), environment).enabled
+    ).toBe(false)
+    expect(
+      resolveActionAvailability('invoke-reset', account({ status: 'failed', message: 'nope' }), environment)
+        .enabled
+    ).toBe(false)
+    expect(
+      resolveActionAvailability(
+        'invoke-reset',
+        account(withCredits(3), { hasStoredAuth: false }),
+        environment
+      ).enabled
+    ).toBe(false)
   })
 })

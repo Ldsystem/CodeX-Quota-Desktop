@@ -4,6 +4,7 @@ import {
   CheckCircle,
   DownloadSimple,
   Key,
+  Lightning,
   Play,
   Question,
   SignIn,
@@ -56,6 +57,7 @@ const ICONS: Record<AccountActionId, ReactNode> = {
   'import-active': <DownloadSimple size={15} weight="bold" />,
   login: <SignIn size={15} weight="bold" />,
   'start-window': <Play size={15} weight="bold" />,
+  'invoke-reset': <Lightning size={15} weight="bold" />,
   logout: <SignOut size={15} weight="bold" />,
   'delete-auth': <Key size={15} weight="bold" />,
   remove: <Trash size={15} weight="bold" />
@@ -66,6 +68,7 @@ const ORDER: AccountActionId[] = [
   'import-active',
   'login',
   'start-window',
+  'invoke-reset',
   'logout',
   'delete-auth',
   'remove'

@@ -29,6 +29,34 @@ export function QuotaMeter({
   label = 'Quota',
   onRetry
 }: QuotaMeterProps): React.JSX.Element {
+  if (state.status === 'ready') {
+    if (state.report.windows.length === 0) {
+      return (
+        <div className={`meter${state.refreshing ? ' meter--refreshing' : ''}`}>
+          <span className="meter__label">{label}</span>
+          <div className="meter__track"><div className="meter__fill meter__fill--unknown" /></div>
+          <div className="meter__readout">
+            <span className="meter__value meter__value--unknown numeric">--</span>
+            <span className="meter__reset">usage unavailable</span>
+          </div>
+        </div>
+      )
+    }
+
+    return (
+      <div className={`quota-rails${state.refreshing ? ' quota-rails--refreshing' : ''}`}>
+        {state.report.windows.map((window, index) => (
+          <QuotaRail
+            key={`${window.limitWindowSeconds ?? 'unknown'}-${index}`}
+            window={window}
+            now={now}
+            compact={compact}
+          />
+        ))}
+      </div>
+    )
+  }
+
   if (state.status === 'loading' || state.status === 'idle') {
     const pending = state.status === 'loading'
     return (
@@ -74,31 +102,7 @@ export function QuotaMeter({
     )
   }
 
-  if (state.report.windows.length === 0) {
-    return (
-      <div className="meter">
-        <span className="meter__label">{label}</span>
-        <div className="meter__track"><div className="meter__fill meter__fill--unknown" /></div>
-        <div className="meter__readout">
-          <span className="meter__value meter__value--unknown numeric">--</span>
-          <span className="meter__reset">usage unavailable</span>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="quota-rails">
-      {state.report.windows.map((window, index) => (
-        <QuotaRail
-          key={`${window.limitWindowSeconds ?? 'unknown'}-${index}`}
-          window={window}
-          now={now}
-          compact={compact}
-        />
-      ))}
-    </div>
-  )
+  throw new Error('unreachable quota meter state')
 }
 
 function QuotaRail({
