@@ -49,7 +49,7 @@ export function mapUsageResponse(body: unknown): MappedUsage {
   const root = asRecord(body) ?? {}
   const rateLimit = asRecord(root.rate_limit)
   const windows = [readWindow(rateLimit?.primary_window), readWindow(rateLimit?.secondary_window)]
-    .filter((window) => window.usedPercent !== null)
+    .filter((window) => window.usedPercent !== null || window.limitWindowSeconds !== null)
 
   if (rateLimit?.limit_reached === true && windows.length > 0) {
     const limiting = windows.reduce((most, window, index) =>
