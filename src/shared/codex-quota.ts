@@ -99,8 +99,15 @@ export interface QuotaReport {
 export type QuotaState =
   | { status: 'idle' }
   | { status: 'loading' }
-  | { status: 'ready'; report: QuotaReport }
+  | { status: 'ready'; report: QuotaReport; refreshing?: boolean }
   | { status: 'failed'; message: string }
+
+export type RegistryStatus = 'loading' | 'ready' | 'failed'
+
+export interface RegistryView {
+  status: RegistryStatus
+  snapshot: RegistrySnapshot | null
+}
 
 /** A record joined with whatever its background fetch has produced so far. */
 export interface AccountView extends AccountRecord {
@@ -136,6 +143,7 @@ export type AccountActionId =
   | 'import-active'
   | 'login'
   | 'start-window'
+  | 'invoke-reset'
   | 'logout'
   | 'delete-auth'
   | 'remove'
@@ -166,6 +174,8 @@ export interface CodexQuotaService {
   login(account: string): Promise<ActionOutcome>
   /** Sends one minimal billed request so the quota window starts counting. */
   startQuotaWindow(account: string): Promise<ActionOutcome>
+  /** Consumes one currently available rate-limit reset credit. */
+  invokeResetCredits(account: string): Promise<ActionOutcome>
   logout(account: string): Promise<ActionOutcome>
   deleteStoredAuth(account: string): Promise<ActionOutcome>
   removeAccount(account: string): Promise<ActionOutcome>
@@ -190,6 +200,11 @@ export const ACTION_CATALOG: Record<
     label: 'Start the quota window',
     short: 'Start window',
     running: 'Starting window'
+  },
+  'invoke-reset': {
+    label: 'Invoke an available reset',
+    short: 'Reset',
+    running: 'Invoking reset'
   },
   logout: { label: 'Sign out', short: 'Sign out', running: 'Signing out' },
   'delete-auth': {
@@ -293,6 +308,39 @@ export function isQuotaSpent(quota: QuotaState): boolean {
   return quota.report.windows.some((window) => quotaPercentLeft(window) === 0)
 }
 
+/** First-ever fetches and in-flight refetches both count as pending. */
+export function isQuotaPending(quota: QuotaState): boolean {
+  return quota.status === 'loading' || (quota.status === 'ready' && quota.refreshing === true)
+}
+
+export function beginQuotaRefresh(current: QuotaState | undefined): QuotaState {
+  if (current?.status === 'ready') {
+    return { status: 'ready', report: current.report, refreshing: true }
+  }
+  return { status: 'loading' }
+}
+
+export function completeQuotaRefresh(report: QuotaReport): QuotaState {
+  return { status: 'ready', report }
+}
+
+export function failQuotaRefresh(current: QuotaState | undefined, message: string): QuotaState {
+  if (current?.status === 'ready') {
+    return { status: 'ready', report: current.report }
+  }
+  return { status: 'failed', message }
+}
+
+export function beginRegistryRefresh(current: RegistryView): RegistryView {
+  if (current.snapshot !== null) return { status: 'ready', snapshot: current.snapshot }
+  return { status: 'loading', snapshot: null }
+}
+
+export function failRegistryRefresh(current: RegistryView): RegistryView {
+  if (current.snapshot !== null) return { status: current.status === 'failed' ? 'ready' : current.status, snapshot: current.snapshot }
+  return { status: 'failed', snapshot: null }
+}
+
 /** The tightest readable limit is the headroom the account can actually spend. */
 export function quotaReportPercentLeft(report: QuotaReport): number | null {
   const readable = report.windows
@@ -354,12 +402,13 @@ export interface ActionAvailability {
 
 /**
  * Guards mirrored from the CLI so the UI refuses the same operations it would.
- * Deliberately takes only local state: an in-flight quota fetch must never
- * decide whether a button works.
+ * Most actions take only local registry state so an in-flight quota fetch never
+ * decides whether a button works. `invoke-reset` is the exception: enablement
+ * depends on the last reported reset count, and unread quota disables it.
  */
 export function resolveActionAvailability(
   action: AccountActionId,
-  account: AccountRecord,
+  account: AccountRecord | AccountView,
   environment: EnvironmentSnapshot
 ): ActionAvailability {
   switch (action) {
@@ -395,6 +444,27 @@ export function resolveActionAvailability(
         enabled: true,
         reason: 'Sends one minimal billed request so the quota window starts counting now.'
       }
+
+    case 'invoke-reset': {
+      if (!account.hasStoredAuth) {
+        return { enabled: false, reason: 'Sign in to this account before invoking a reset.' }
+      }
+      const quota = 'quota' in account ? account.quota : undefined
+      if (quota === undefined || quota.status !== 'ready') {
+        return { enabled: false, reason: 'Quota has not been read yet, so available resets are unknown.' }
+      }
+      const count = quota.report.availableResetCredits
+      if (count === null) {
+        return { enabled: false, reason: 'Available resets are unknown for this account.' }
+      }
+      if (!(count > 0)) {
+        return { enabled: false, reason: 'No reset credits are available.' }
+      }
+      return {
+        enabled: true,
+        reason: 'Spends one available reset so this account’s rate-limit windows reset now.'
+      }
+    }
 
     case 'logout':
       if (!account.hasStoredAuth) {

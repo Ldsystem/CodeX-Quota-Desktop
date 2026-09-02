@@ -19,6 +19,14 @@ import type {
   QuotaState,
   RegistrySnapshot
 } from '../../../shared/codex-quota'
+import {
+  beginQuotaRefresh,
+  beginRegistryRefresh,
+  completeQuotaRefresh,
+  failQuotaRefresh,
+  failRegistryRefresh,
+  isQuotaPending
+} from '../../../shared/codex-quota'
 import type { ToastMessage } from '../components/ToastStack'
 
 export interface RunningJob {
@@ -49,7 +57,7 @@ export interface WorkbenchState {
 }
 
 /** Actions whose result changes what the usage API would say. */
-const REFETCH_AFTER: AccountActionId[] = ['import-active', 'login', 'start-window']
+const REFETCH_AFTER: AccountActionId[] = ['import-active', 'login', 'start-window', 'invoke-reset']
 
 /** How often the local environment is re-read while the window is on screen. */
 const ENVIRONMENT_POLL_MS = 10_000
@@ -66,6 +74,7 @@ export function useWorkbench(service: CodexQuotaService): WorkbenchState {
   const mounted = useRef(true)
   // Late responses from a superseded fetch must not overwrite a newer one.
   const fetchGeneration = useRef<Record<string, number>>({})
+  const registryRef = useRef<RegistrySnapshot | null>(null)
 
   useEffect(() => {
     mounted.current = true
@@ -88,22 +97,22 @@ export function useWorkbench(service: CodexQuotaService): WorkbenchState {
     (account: string) => {
       const generation = (fetchGeneration.current[account] ?? 0) + 1
       fetchGeneration.current[account] = generation
-      setQuota((current) => ({ ...current, [account]: { status: 'loading' } }))
+      setQuota((current) => ({ ...current, [account]: beginQuotaRefresh(current[account]) }))
 
       void service
         .fetchQuota(account)
         .then((report) => {
           if (!mounted.current || fetchGeneration.current[account] !== generation) return
-          setQuota((current) => ({ ...current, [account]: { status: 'ready', report } }))
+          setQuota((current) => ({ ...current, [account]: completeQuotaRefresh(report) }))
         })
         .catch((error: unknown) => {
           if (!mounted.current || fetchGeneration.current[account] !== generation) return
           setQuota((current) => ({
             ...current,
-            [account]: {
-              status: 'failed',
-              message: error instanceof Error ? error.message : 'Usage could not be read.'
-            }
+            [account]: failQuotaRefresh(
+              current[account],
+              error instanceof Error ? error.message : 'Usage could not be read.'
+            )
           }))
         })
     },
@@ -112,10 +121,12 @@ export function useWorkbench(service: CodexQuotaService): WorkbenchState {
 
   const readRegistry = useCallback(
     (options?: { thenFetchQuota?: boolean }) => {
+      setRegistryStatus((status) => beginRegistryRefresh({ status, snapshot: registryRef.current }).status)
       void service
         .readRegistry()
         .then((snapshot) => {
           if (!mounted.current) return
+          registryRef.current = snapshot
           setRegistry(snapshot)
           setEnvironment(snapshot.environment)
           setRegistryStatus('ready')
@@ -133,7 +144,9 @@ export function useWorkbench(service: CodexQuotaService): WorkbenchState {
         })
         .catch(() => {
           if (!mounted.current) return
-          setRegistryStatus('failed')
+          setRegistryStatus(
+            (status) => failRegistryRefresh({ status, snapshot: registryRef.current }).status
+          )
         })
     },
     [refreshQuota, service]
@@ -245,7 +258,7 @@ export function useWorkbench(service: CodexQuotaService): WorkbenchState {
     environment: environment ?? registry?.environment ?? null,
     registryReadAt: registry?.readAt ?? null,
     registryStatus,
-    quotaPending: accounts.filter((account) => account.quota.status === 'loading').length,
+    quotaPending: accounts.filter((account) => isQuotaPending(account.quota)).length,
     jobs,
     toasts,
     jobFor,
@@ -272,6 +285,8 @@ function callAction(
       return service.login(account)
     case 'start-window':
       return service.startQuotaWindow(account)
+    case 'invoke-reset':
+      return service.invokeResetCredits(account)
     case 'logout':
       return service.logout(account)
     case 'delete-auth':

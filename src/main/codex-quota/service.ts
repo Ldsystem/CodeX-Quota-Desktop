@@ -48,6 +48,13 @@ import {
 } from './paths'
 import { mapProfileResponse, PROFILE_URL } from './profile'
 import { readEnvironmentSnapshot, readRegistrySnapshot } from './registry'
+import {
+  mapConsumeOutcome,
+  mapResetCreditsList,
+  resetCreditsConsumeUrl,
+  resetCreditsListUrl,
+  selectCreditForConsume
+} from './reset-credits'
 import { mapUsageResponse } from './usage'
 
 interface Subscription {
@@ -103,10 +110,13 @@ async function resolveAuthPath(paths: CodexQuotaPaths, account: string): Promise
 function authorized(
   url: string,
   paths: CodexQuotaPaths,
-  credentials: AuthCredentials
+  credentials: AuthCredentials,
+  extra: { method?: 'GET' | 'POST'; json?: unknown } = {}
 ): ReturnType<typeof requestJson> {
   return requestJson(url, {
     proxyUrl: paths.proxyUrl,
+    method: extra.method,
+    json: extra.json,
     headers: {
       authorization: `Bearer ${credentials.accessToken}`,
       'chatgpt-account-id': credentials.accountId ?? '',
@@ -260,6 +270,118 @@ export function createCodexQuotaService(
     return { desktopRunning, codexBinary: binary?.path ?? null }
   }
 
+  async function loadCredentials(account: string): Promise<{
+    name: string
+    authPath: string
+    credentials: AuthCredentials
+  }> {
+    const name = await requireAccount(paths, account)
+    const authPath = await resolveAuthPath(paths, name)
+    if (authPath === null) {
+      throw new ActionError(
+        `No stored credential for ${name}.`,
+        'Sign in to this account, or import the live credential, first.'
+      )
+    }
+    if (allowTokenRefresh) await refreshIfExpired(paths, authPath)
+    const credentials = await readAuthCredentials(authPath)
+    if (!credentials?.accessToken || !credentials.accountId) {
+      throw new ActionError(
+        `No usable access token for ${name}.`,
+        'Sign in again, then retry the reset.'
+      )
+    }
+    return { name, authPath, credentials }
+  }
+
+  async function authorizedWithRefresh(
+    url: string,
+    authPath: string,
+    credentials: AuthCredentials,
+    extra: { method?: 'GET' | 'POST'; json?: unknown } = {}
+  ): Promise<{ response: Awaited<ReturnType<typeof requestJson>> | null; credentials: AuthCredentials }> {
+    let current = credentials
+    let response = await authorized(url, paths, current, extra).catch(() => null)
+    if (allowTokenRefresh && response?.status === 401 && (await mayRefresh(paths, authPath))) {
+      if (await refreshAuthFile(paths, authPath)) {
+        current = (await readAuthCredentials(authPath)) ?? current
+        response = await authorized(url, paths, current, extra).catch(() => null)
+      }
+    }
+    return { response, credentials: current }
+  }
+
+  /** Lists currently available credits, then consumes one server-returned id. */
+  async function consumeResetCredit(account: string): Promise<{ detail: string }> {
+    const loaded = await loadCredentials(account)
+    const listUrl = resetCreditsListUrl(paths.usageUrl)
+    const consumeUrl = resetCreditsConsumeUrl(paths.usageUrl)
+    if (listUrl === null || consumeUrl === null) {
+      throw new ActionError(
+        `Could not list reset credits for ${loaded.name}.`,
+        'The configured usage URL is not a valid HTTP origin.'
+      )
+    }
+
+    const listed = await authorizedWithRefresh(listUrl, loaded.authPath, loaded.credentials)
+    if (listed.response?.status !== 200) {
+      throw new ActionError(
+        `Could not list reset credits for ${loaded.name}.`,
+        listed.response === null
+          ? `The usage API could not be reached${paths.proxyUrl ? ` through ${paths.proxyUrl}` : ''}.`
+          : `The usage API answered ${listed.response.status}.`
+      )
+    }
+
+    const mapped = mapResetCreditsList(listed.response.body)
+    const credit = selectCreditForConsume(mapped)
+    if (credit === null) {
+      throw new ActionError(
+        `No consumable reset credit for ${loaded.name}.`,
+        mapped.availableCount !== null && mapped.availableCount > 0
+          ? 'The usage API reported available resets but did not return a usable credit id.'
+          : 'Refresh quota, then try again when a reset is available.'
+      )
+    }
+
+    const redeemRequestId = crypto.randomUUID()
+    const consumed = await authorizedWithRefresh(consumeUrl, loaded.authPath, listed.credentials, {
+      method: 'POST',
+      json: { credit_id: credit.id, redeem_request_id: redeemRequestId }
+    })
+    if (consumed.response === null) {
+      throw new ActionError(
+        `Could not consume a reset credit for ${loaded.name}.`,
+        `The usage API could not be reached${paths.proxyUrl ? ` through ${paths.proxyUrl}` : ''}.`
+      )
+    }
+
+    const outcome = mapConsumeOutcome(consumed.response.body, consumed.response.status)
+    if (!outcome.ok) {
+      throw new ActionError(
+        outcome.code === 'no_credit'
+          ? `No reset credit remained for ${loaded.name}.`
+          : outcome.code === 'nothing_to_reset'
+            ? `Nothing to reset for ${loaded.name}.`
+            : `Could not consume a reset credit for ${loaded.name}.`,
+        outcome.code === 'no_credit' || outcome.code === 'nothing_to_reset'
+          ? 'Refresh quota to see the current reset count.'
+          : consumed.response.status === 401
+            ? 'Sign in again, then retry the reset.'
+            : `The usage API answered ${consumed.response.status}${
+                outcome.code ? ` (${outcome.code})` : ''
+              }.`
+      )
+    }
+
+    return {
+      detail:
+        outcome.code === 'already_redeemed'
+          ? 'That reset was already redeemed. Refresh to see the current windows.'
+          : 'One available reset was spent. Refresh to see the new windows.'
+    }
+  }
+
   /** One minimal billed request, which is what actually starts the window. */
   async function startWindow(account: string): Promise<{ detail: string }> {
     const name = await requireAccount(paths, account)
@@ -382,6 +504,9 @@ export function createCodexQuotaService(
       }),
 
     startQuotaWindow: (account) => attempt(`Started the quota window for ${account}`, () => startWindow(account)),
+
+    invokeResetCredits: (account) =>
+      attempt(`Invoked a reset for ${account}`, () => consumeResetCredit(account)),
 
     logout: (account) =>
       attempt(`Signed out of ${account}`, async () => {

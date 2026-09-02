@@ -388,6 +388,21 @@ select {
   gap: var(--space-3);
 }
 
+.account-row__open {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
 .account-row__identity {
   display: grid;
   min-width: 0;
@@ -419,6 +434,18 @@ select {
   flex: none;
   color: var(--fg-muted);
   opacity: 0.6;
+}
+
+.account-row__actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.account-row__actions .button--icon {
+  width: 1.75rem;
+  min-height: 1.75rem;
 }
 
 /* ---------------------------------------------------------- account page */
