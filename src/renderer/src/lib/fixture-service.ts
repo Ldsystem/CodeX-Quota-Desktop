@@ -25,6 +25,7 @@ import type {
   RegistrySnapshot,
   TokenUsage
 } from '../../../shared/codex-quota'
+import { weeklyAllowanceRemains } from '../../../shared/codex-quota'
 
 const HOUR = 3600
 const FIVE_HOURS = 18_000
@@ -403,6 +404,16 @@ export class FixtureCodexQuotaService implements CodexQuotaService {
           ok: false,
           title: `No consumable reset credit for ${account}`,
           detail: 'Refresh quota, then try again when a reset is available.'
+        },
+        420
+      )
+    }
+    if (weeklyAllowanceRemains(existing.windows)) {
+      return delay(
+        {
+          ok: false,
+          title: `Weekly quota still remains for ${account}`,
+          detail: 'Invoke a reset after the weekly window is spent.'
         },
         420
       )

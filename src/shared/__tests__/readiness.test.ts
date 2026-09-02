@@ -4,6 +4,7 @@ import {
   isReadyToSwitch,
   quotaPercentLeft,
   resolveActionAvailability,
+  weeklyAllowanceRemains,
   type AccountView,
   type EnvironmentSnapshot,
   type QuotaReport,
@@ -123,6 +124,59 @@ function withCredits(count: number | null): QuotaState {
   return { status: 'ready', report: { ...state.report, availableResetCredits: count } }
 }
 
+function withCreditsAndWeekly(
+  count: number | null,
+  weeklyUsedPercent: number | null,
+  weeklyExhausted = false
+): QuotaState {
+  const state = withCredits(count)
+  if (state.status !== 'ready') return state
+  return {
+    status: 'ready',
+    report: {
+      ...state.report,
+      windows: [
+        ...state.report.windows,
+        {
+          usedPercent: weeklyUsedPercent,
+          resetAt: null,
+          limitWindowSeconds: 604_800,
+          exhausted: weeklyExhausted
+        }
+      ]
+    }
+  }
+}
+
+describe('weeklyAllowanceRemains', () => {
+  it('is false when no weekly window is present', () => {
+    const state = ready(10)
+    expect(state.status).toBe('ready')
+    if (state.status !== 'ready') return
+    expect(weeklyAllowanceRemains(state.report.windows)).toBe(false)
+  })
+
+  it('is true when weekly headroom is still positive or unknown', () => {
+    const remaining = withCreditsAndWeekly(1, 40)
+    const unknown = withCreditsAndWeekly(1, null)
+    expect(remaining.status).toBe('ready')
+    expect(unknown.status).toBe('ready')
+    if (remaining.status !== 'ready' || unknown.status !== 'ready') return
+    expect(weeklyAllowanceRemains(remaining.report.windows)).toBe(true)
+    expect(weeklyAllowanceRemains(unknown.report.windows)).toBe(true)
+  })
+
+  it('is false when the weekly window is spent', () => {
+    const spent = withCreditsAndWeekly(1, 100)
+    const reached = withCreditsAndWeekly(1, 94, true)
+    expect(spent.status).toBe('ready')
+    expect(reached.status).toBe('ready')
+    if (spent.status !== 'ready' || reached.status !== 'ready') return
+    expect(weeklyAllowanceRemains(spent.report.windows)).toBe(false)
+    expect(weeklyAllowanceRemains(reached.report.windows)).toBe(false)
+  })
+})
+
 describe('invoke-reset availability', () => {
   it('enables only a ready report with a finite count greater than zero and a stored credential', () => {
     expect(resolveActionAvailability('invoke-reset', account(withCredits(2)), environment).enabled).toBe(
@@ -131,6 +185,23 @@ describe('invoke-reset availability', () => {
     expect(resolveActionAvailability('invoke-reset', account(withCredits(1)), environment).enabled).toBe(
       true
     )
+  })
+
+  it('disables when weekly quota allowance still remains, even if a reset credit is available', () => {
+    const availability = resolveActionAvailability(
+      'invoke-reset',
+      account(withCreditsAndWeekly(2, 40)),
+      environment
+    )
+    expect(availability.enabled).toBe(false)
+    expect(availability.reason).toMatch(/weekly/i)
+  })
+
+  it('stays enabled when a reset credit is available and the weekly window is spent', () => {
+    expect(
+      resolveActionAvailability('invoke-reset', account(withCreditsAndWeekly(1, 100)), environment)
+        .enabled
+    ).toBe(true)
   })
 
   it('treats zero, unknown, unread, failed, and missing credentials as disabled', () => {

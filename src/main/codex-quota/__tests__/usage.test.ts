@@ -82,4 +82,27 @@ describe('mapUsageResponse', () => {
     const mapped = mapUsageResponse({ rate_limit: { primary_window: { used_percent: null } } })
     expect(mapped.windows).toEqual([])
   })
+
+  it('keeps an identifiable weekly window whose remaining is unknown', () => {
+    const mapped = mapUsageResponse({
+      rate_limit: {
+        primary_window: { used_percent: 10, limit_window_seconds: 18_000, reset_at: 1 },
+        secondary_window: { limit_window_seconds: 604_800, reset_at: 2 }
+      }
+    })
+    expect(mapped.windows).toEqual([
+      {
+        usedPercent: 10,
+        resetAt: 1,
+        limitWindowSeconds: 18_000,
+        exhausted: false
+      },
+      {
+        usedPercent: null,
+        resetAt: 2,
+        limitWindowSeconds: 604_800,
+        exhausted: false
+      }
+    ])
+  })
 })

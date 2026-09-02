@@ -19,7 +19,8 @@ import {
   type QuotaSource,
   type RegistrySnapshot,
   type TokenUsage,
-  type WarningLabel
+  type WarningLabel,
+  weeklyAllowanceRemains
 } from '../../shared/codex-quota'
 import {
   addAccount,
@@ -323,7 +324,30 @@ export function createCodexQuotaService(
       )
     }
 
-    const listed = await authorizedWithRefresh(listUrl, loaded.authPath, loaded.credentials)
+    const usage = await authorizedWithRefresh(paths.usageUrl, loaded.authPath, loaded.credentials)
+    if (usage.response?.status !== 200) {
+      throw new ActionError(
+        `Could not read weekly quota for ${loaded.name}.`,
+        usage.response === null
+          ? `The usage API could not be reached${paths.proxyUrl ? ` through ${paths.proxyUrl}` : ''}.`
+          : `The usage API answered ${usage.response.status}.`
+      )
+    }
+    const mappedUsage = mapUsageResponse(usage.response.body)
+    if (!mappedUsage.usable) {
+      throw new ActionError(
+        `Could not read weekly quota for ${loaded.name}.`,
+        'The usage API did not return a usable allowance window.'
+      )
+    }
+    if (weeklyAllowanceRemains(mappedUsage.windows)) {
+      throw new ActionError(
+        `Weekly quota still remains for ${loaded.name}.`,
+        'Invoke a reset after the weekly window is spent.'
+      )
+    }
+
+    const listed = await authorizedWithRefresh(listUrl, loaded.authPath, usage.credentials)
     if (listed.response?.status !== 200) {
       throw new ActionError(
         `Could not list reset credits for ${loaded.name}.`,

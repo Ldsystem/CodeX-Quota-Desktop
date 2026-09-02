@@ -278,12 +278,34 @@ export function validateAccountName(name: string, existing: readonly string[] = 
 }
 
 export const FIVE_HOUR_WINDOW_SECONDS = 18_000
+export const WEEKLY_WINDOW_SECONDS = 604_800
 
 export function fiveHourWindow(
   source: readonly QuotaWindow[] | Pick<QuotaReport, 'windows'>
 ): QuotaWindow | null {
   const windows = 'windows' in source ? source.windows : source
   return windows.find((window) => window.limitWindowSeconds === FIVE_HOUR_WINDOW_SECONDS) ?? null
+}
+
+export function weeklyWindow(
+  source: readonly QuotaWindow[] | Pick<QuotaReport, 'windows'>
+): QuotaWindow | null {
+  const windows = 'windows' in source ? source.windows : source
+  return windows.find((window) => window.limitWindowSeconds === WEEKLY_WINDOW_SECONDS) ?? null
+}
+
+/**
+ * Weekly headroom still to spend. Unknown remaining is treated as remaining so
+ * a reset is not offered or consumed while weekly allowance cannot be shown as
+ * spent. No weekly window means there is no weekly allowance to protect.
+ */
+export function weeklyAllowanceRemains(
+  source: readonly QuotaWindow[] | Pick<QuotaReport, 'windows'>
+): boolean {
+  const weekly = weeklyWindow(source)
+  if (weekly === null) return false
+  const left = quotaPercentLeft(weekly)
+  return left === null || left > 0
 }
 
 /**
@@ -404,7 +426,8 @@ export interface ActionAvailability {
  * Guards mirrored from the CLI so the UI refuses the same operations it would.
  * Most actions take only local registry state so an in-flight quota fetch never
  * decides whether a button works. `invoke-reset` is the exception: enablement
- * depends on the last reported reset count, and unread quota disables it.
+ * depends on the last reported reset count and weekly remaining, and unread
+ * quota disables it.
  */
 export function resolveActionAvailability(
   action: AccountActionId,
@@ -459,6 +482,12 @@ export function resolveActionAvailability(
       }
       if (!(count > 0)) {
         return { enabled: false, reason: 'No reset credits are available.' }
+      }
+      if (weeklyAllowanceRemains(quota.report.windows)) {
+        return {
+          enabled: false,
+          reason: 'Weekly quota is still available. Invoke a reset after that window is spent.'
+        }
       }
       return {
         enabled: true,
