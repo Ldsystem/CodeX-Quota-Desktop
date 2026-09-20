@@ -1,7 +1,7 @@
 import { chmod, mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { resolveCodexBinary, startedBilledTurn } from '../codex-cli'
+import { resolveCodexBinary, startedBilledTurn, windowStartArgs } from '../codex-cli'
 import { scratchHome, type Scratch } from './helpers'
 
 describe('codex binary resolution', () => {
@@ -144,5 +144,33 @@ describe('billed turn detection', () => {
 
   it('rejects output with no completed turn at all', () => {
     expect(startedBilledTurn('{"type":"error","message":"unauthorized"}\nnot json')).toBe(false)
+  })
+})
+
+describe('window start invocation', () => {
+  it('delegates model and effort to Codex when both settings are empty', () => {
+    const args = windowStartArgs({
+      model: '',
+      reasoningEffort: '',
+      workdir: '/tmp/window-start',
+      outputPath: '/tmp/window-start/response.txt'
+    })
+
+    expect(args).toContain('--output-last-message')
+    expect(args).toContain('/tmp/window-start/response.txt')
+    expect(args).not.toContain('-m')
+    expect(args).not.toContain('-c')
+  })
+
+  it('passes arbitrary model and reasoning effort overrides', () => {
+    const args = windowStartArgs({
+      model: 'gpt-5.6-luna',
+      reasoningEffort: 'custom-effort',
+      workdir: '/tmp/window-start',
+      outputPath: '/tmp/window-start/response.txt'
+    })
+
+    expect(args).toContain('gpt-5.6-luna')
+    expect(args).toContain('model_reasoning_effort="custom-effort"')
   })
 })

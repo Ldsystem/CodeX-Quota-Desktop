@@ -10,15 +10,23 @@ interface EnvironmentViewProps {
 }
 
 /**
- * Paths and network settings are read-only. Menu bar behavior and the model
- * used for window priming are app-owned preferences and can be changed here.
+ * Paths and network settings are read-only. Menu bar behavior and the request
+ * settings used for window priming are app-owned preferences.
  */
 export function EnvironmentView({ environment }: EnvironmentViewProps): React.JSX.Element {
   const { preferences, update: change } = usePreferences()
   const [windowStartModel, setWindowStartModel] = useState(preferences.windowStartModel)
+  const [windowStartReasoningEffort, setWindowStartReasoningEffort] = useState(
+    preferences.windowStartReasoningEffort
+  )
   const modelId = useId()
+  const reasoningEffortId = useId()
 
   useEffect(() => setWindowStartModel(preferences.windowStartModel), [preferences.windowStartModel])
+  useEffect(
+    () => setWindowStartReasoningEffort(preferences.windowStartReasoningEffort),
+    [preferences.windowStartReasoningEffort]
+  )
 
   if (environment === null) {
     return <p className="panel__empty">Reading local state.</p>
@@ -129,41 +137,57 @@ export function EnvironmentView({ environment }: EnvironmentViewProps): React.JS
 
       <Panel title="Window priming" subtitle="The billed request that starts a quota window" span="wide">
         <div className="fact-column">
-          <div className="fact-grid">
-            <div className="fact">
-              <span className="fact__label">Reasoning effort</span>
-              <span className="fact__value numeric">{environment.windowStartReasoningEffort}</span>
-            </div>
-          </div>
           <form
             className="field"
             onSubmit={(event) => {
               event.preventDefault()
-              change({ windowStartModel })
+              change({ windowStartModel, windowStartReasoningEffort })
             }}
           >
-            <label className="field__label" htmlFor={modelId}>
-              Model for billed requests
-            </label>
-            <input
-              id={modelId}
-              className="field__input numeric"
-              value={windowStartModel}
-              placeholder="Codex configured default"
-              autoComplete="off"
-              spellCheck={false}
-              onChange={(event) => setWindowStartModel(event.target.value)}
-            />
+            <div className="field-grid">
+              <div className="field">
+                <label className="field__label" htmlFor={modelId}>
+                  Model for billed requests
+                </label>
+                <input
+                  id={modelId}
+                  className="field__input numeric"
+                  value={windowStartModel}
+                  placeholder="Codex configured default"
+                  autoComplete="off"
+                  spellCheck={false}
+                  onChange={(event) => setWindowStartModel(event.target.value)}
+                />
+              </div>
+              <div className="field">
+                <label className="field__label" htmlFor={reasoningEffortId}>
+                  Reasoning effort
+                </label>
+                <input
+                  id={reasoningEffortId}
+                  className="field__input numeric"
+                  value={windowStartReasoningEffort}
+                  placeholder="Codex configured default"
+                  autoComplete="off"
+                  spellCheck={false}
+                  onChange={(event) => setWindowStartReasoningEffort(event.target.value)}
+                />
+              </div>
+            </div>
             <span className="field__hint">
-              Enter any model ID, or leave this empty to let Codex choose its configured default.
+              Enter values supported by the selected model, or leave either field empty to let
+              Codex use its configured default.
             </span>
             <div>
               <button
                 type="submit"
                 className="button button--primary"
-                disabled={windowStartModel.trim() === preferences.windowStartModel}
+                disabled={
+                  windowStartModel.trim() === preferences.windowStartModel &&
+                  windowStartReasoningEffort.trim() === preferences.windowStartReasoningEffort
+                }
               >
-                Save model
+                Save request settings
               </button>
             </div>
           </form>

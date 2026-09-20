@@ -152,6 +152,8 @@ export interface ActionOutcome {
   ok: boolean
   title: string
   detail?: string
+  /** Final model text for a successful billed request. */
+  response?: string
   /** Activation always backs up the live credential first; this is the restore path. */
   backupPath?: string
 }

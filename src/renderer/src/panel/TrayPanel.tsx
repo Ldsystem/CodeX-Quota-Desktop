@@ -87,8 +87,8 @@ export function TrayPanel({ service }: TrayPanelProps): React.JSX.Element {
 
   const newest = bench.toasts.length > 0 ? bench.toasts[bench.toasts.length - 1] : undefined
 
-  // A toast in a panel this size would cover a card, so the newest one is a
-  // single line that clears itself.
+  // Keep only the newest notice in this compact panel. A billed response gets
+  // one small code block so the user can verify that the request completed.
   useEffect(() => {
     if (!newest) return
     const timer = setTimeout(() => bench.dismissToast(newest.id), 6_000)
@@ -181,7 +181,10 @@ export function TrayPanel({ service }: TrayPanelProps): React.JSX.Element {
           className={`panel-shell__toast${newest.ok ? '' : ' panel-shell__toast--bad'}`}
           onClick={() => bench.dismissToast(newest.id)}
         >
-          {newest.title}
+          <span className="panel-shell__toast-title">{newest.title}</span>
+          {newest.ok && newest.response ? (
+            <code className="panel-shell__toast-response numeric">{newest.response}</code>
+          ) : null}
         </button>
       ) : null}
     </div>

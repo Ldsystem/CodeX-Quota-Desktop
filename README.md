@@ -141,11 +141,12 @@ the app connects directly.
 | `CQ_HTTP_PROXY` | Backward-compatible app-specific proxy override; `off` disables proxying |
 | `CQ_QUOTA_USAGE_URL` | Override the usage endpoint |
 | `CQ_START_5H_MODEL` | Initial model used to prime a quota window; Settings can persist a replacement |
-| `CQ_START_5H_REASONING_EFFORT` | Reasoning effort for that request (default `low`) |
+| `CQ_START_5H_REASONING_EFFORT` | Initial reasoning effort for that request; Settings can persist a replacement |
 
 Settings shows the resolved paths, the proxy, and which `codex` was found. The priming model is
-editable there and saved to `desktop-app.json`; leaving it empty lets Codex select its configured
-default model.
+editable there alongside its reasoning effort and both are saved to `desktop-app.json`; leaving
+either empty lets Codex use its configured default. A successful Start window notice includes the
+model's final response so the billed turn is visible rather than inferred from a generic message.
 
 ## Development
 

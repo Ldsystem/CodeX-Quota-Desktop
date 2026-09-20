@@ -21,6 +21,7 @@ interface StoredPreferences {
   menuBarOnly: boolean
   autoSync: boolean
   windowStartModel: string
+  windowStartReasoningEffort: string
 }
 
 /**
@@ -28,7 +29,12 @@ interface StoredPreferences {
  * figure worth looking at, and the window it starts would otherwise sit unused
  * until the account is next picked up, pushing its reset further away.
  */
-const DEFAULTS: StoredPreferences = { menuBarOnly: false, autoSync: true, windowStartModel: '' }
+const DEFAULTS: StoredPreferences = {
+  menuBarOnly: false,
+  autoSync: true,
+  windowStartModel: '',
+  windowStartReasoningEffort: ''
+}
 
 export function preferencesPath(storageRoot: string): string {
   return join(storageRoot, FILE)
@@ -36,18 +42,24 @@ export function preferencesPath(storageRoot: string): string {
 
 export async function readPreferences(
   storageRoot: string,
-  fallbackWindowStartModel = ''
+  fallbackWindowStartModel = '',
+  fallbackWindowStartReasoningEffort = ''
 ): Promise<ShellPreferences> {
   return {
     startAtLogin: app.getLoginItemSettings().openAtLogin,
-    ...(await readStored(storageRoot, fallbackWindowStartModel))
+    ...(await readStored(
+      storageRoot,
+      fallbackWindowStartModel,
+      fallbackWindowStartReasoningEffort
+    ))
   }
 }
 
 export async function writePreferences(
   storageRoot: string,
   changes: Partial<ShellPreferences>,
-  fallbackWindowStartModel = ''
+  fallbackWindowStartModel = '',
+  fallbackWindowStartReasoningEffort = ''
 ): Promise<ShellPreferences> {
   if (changes.startAtLogin !== undefined) {
     app.setLoginItemSettings({
@@ -61,40 +73,64 @@ export async function writePreferences(
   if (
     changes.menuBarOnly !== undefined ||
     changes.autoSync !== undefined ||
-    changes.windowStartModel !== undefined
+    changes.windowStartModel !== undefined ||
+    changes.windowStartReasoningEffort !== undefined
   ) {
-    const stored = await readStored(storageRoot, fallbackWindowStartModel)
+    const stored = await readStored(
+      storageRoot,
+      fallbackWindowStartModel,
+      fallbackWindowStartReasoningEffort
+    )
     const next: StoredPreferences = {
       menuBarOnly: changes.menuBarOnly ?? stored.menuBarOnly,
       autoSync: changes.autoSync ?? stored.autoSync,
-      windowStartModel: changes.windowStartModel?.trim() ?? stored.windowStartModel
+      windowStartModel: changes.windowStartModel?.trim() ?? stored.windowStartModel,
+      windowStartReasoningEffort:
+        changes.windowStartReasoningEffort?.trim() ?? stored.windowStartReasoningEffort
     }
     await writeFileAtomic(preferencesPath(storageRoot), `${JSON.stringify(next, null, 2)}\n`)
   }
 
-  return readPreferences(storageRoot, fallbackWindowStartModel)
+  return readPreferences(
+    storageRoot,
+    fallbackWindowStartModel,
+    fallbackWindowStartReasoningEffort
+  )
 }
 
 async function readStored(
   storageRoot: string,
-  fallbackWindowStartModel: string
+  fallbackWindowStartModel: string,
+  fallbackWindowStartReasoningEffort: string
 ): Promise<StoredPreferences> {
   try {
     const parsed: unknown = JSON.parse(await readFile(preferencesPath(storageRoot), 'utf8'))
     if (typeof parsed !== 'object' || parsed === null) {
-      return { ...DEFAULTS, windowStartModel: fallbackWindowStartModel }
+      return {
+        ...DEFAULTS,
+        windowStartModel: fallbackWindowStartModel,
+        windowStartReasoningEffort: fallbackWindowStartReasoningEffort
+      }
     }
 
     const record = parsed as Partial<Record<keyof StoredPreferences, unknown>>
     return {
       menuBarOnly: boolish(record.menuBarOnly, DEFAULTS.menuBarOnly),
       autoSync: boolish(record.autoSync, DEFAULTS.autoSync),
-      windowStartModel: textish(record.windowStartModel, fallbackWindowStartModel)
+      windowStartModel: textish(record.windowStartModel, fallbackWindowStartModel),
+      windowStartReasoningEffort: textish(
+        record.windowStartReasoningEffort,
+        fallbackWindowStartReasoningEffort
+      )
     }
   } catch {
     // No file, unreadable file, or nonsense in it: the defaults are the state a
     // first-time user can find their way out of.
-    return { ...DEFAULTS, windowStartModel: fallbackWindowStartModel }
+    return {
+      ...DEFAULTS,
+      windowStartModel: fallbackWindowStartModel,
+      windowStartReasoningEffort: fallbackWindowStartReasoningEffort
+    }
   }
 }
 

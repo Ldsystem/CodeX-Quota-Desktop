@@ -389,7 +389,8 @@ export class FixtureCodexQuotaService implements CodexQuotaService {
       {
         ok: true,
         title: `Quota window started for ${account}`,
-        detail: 'One minimal request was billed. The quota windows now count from this moment.'
+        detail: 'One minimal request was billed. The quota windows now count from this moment.',
+        response: 'ok'
       },
       3100
     )

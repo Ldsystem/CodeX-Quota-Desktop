@@ -33,7 +33,6 @@ type Env = Record<string, string | undefined>
 const DEFAULT_USAGE_URL = 'https://chatgpt.com/backend-api/wham/usage'
 const DEFAULT_TOKEN_URL = 'https://auth.openai.com/oauth/token'
 const DEFAULT_CLIENT_ID = 'app_EMoamEEZ73f0CkXaXp7hrann'
-const DEFAULT_WINDOW_START_EFFORT = 'low'
 
 /** App-specific proxy first, then the standard HTTPS and HTTP variables. */
 function proxyFrom(source: Env): string | undefined {
@@ -104,10 +103,7 @@ export function resolvePaths(
     oauthClientId: configured('CQ_OAUTH_CLIENT_ID', DEFAULT_CLIENT_ID),
     proxyUrl: resolveProxy(env, fileEnv),
     windowStartModel: configured('CQ_START_5H_MODEL', ''),
-    windowStartReasoningEffort: configured(
-      'CQ_START_5H_REASONING_EFFORT',
-      DEFAULT_WINDOW_START_EFFORT
-    )
+    windowStartReasoningEffort: configured('CQ_START_5H_REASONING_EFFORT', '')
   }
 }
 

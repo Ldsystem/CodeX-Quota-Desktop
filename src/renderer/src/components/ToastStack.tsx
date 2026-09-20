@@ -6,6 +6,7 @@ export interface ToastMessage {
   ok: boolean
   title: string
   detail?: string
+  response?: string
   backupPath?: string
 }
 
@@ -37,6 +38,11 @@ export function ToastStack({ toasts, onDismiss }: ToastStackProps): React.JSX.El
           <div>
             <div className="toast__title">{toast.title}</div>
             {toast.detail ? <div className="toast__detail">{toast.detail}</div> : null}
+            {toast.ok && toast.response ? (
+              <pre className="toast__response numeric">
+                <code>{toast.response}</code>
+              </pre>
+            ) : null}
             {toast.backupPath ? (
               <code className="toast__path numeric">Backup: {toast.backupPath}</code>
             ) : null}

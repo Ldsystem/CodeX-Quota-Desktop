@@ -96,7 +96,10 @@ function openMain(account: string | null): void {
 }
 
 function applyPreferences(preferences: ShellPreferences): void {
-  if (servicePaths) servicePaths.windowStartModel = preferences.windowStartModel
+  if (servicePaths) {
+    servicePaths.windowStartModel = preferences.windowStartModel
+    servicePaths.windowStartReasoningEffort = preferences.windowStartReasoningEffort
+  }
   tray?.setPreferences(preferences)
   broadcastPreferences(preferences)
 
@@ -112,17 +115,28 @@ app.whenReady().then(async () => {
   const home = homedir()
   servicePaths = resolvePaths(process.env, home, await readCodexQuotaEnvFile(home))
   const storageRoot = servicePaths.home
-  const initialPreferences = await readPreferences(storageRoot, servicePaths.windowStartModel)
+  const initialPreferences = await readPreferences(
+    storageRoot,
+    servicePaths.windowStartModel,
+    servicePaths.windowStartReasoningEffort
+  )
   servicePaths.windowStartModel = initialPreferences.windowStartModel
+  servicePaths.windowStartReasoningEffort = initialPreferences.windowStartReasoningEffort
   registerCodexQuotaIpc(createCodexQuotaService(servicePaths, { allowTokenRefresh: true }))
 
   registerShellIpc({
-    readPreferences: () => readPreferences(storageRoot, servicePaths?.windowStartModel),
+    readPreferences: () =>
+      readPreferences(
+        storageRoot,
+        servicePaths?.windowStartModel,
+        servicePaths?.windowStartReasoningEffort
+      ),
     writePreferences: async (changes) => {
       const preferences = await writePreferences(
         storageRoot,
         changes,
-        servicePaths?.windowStartModel
+        servicePaths?.windowStartModel,
+        servicePaths?.windowStartReasoningEffort
       )
       applyPreferences(preferences)
       return preferences
@@ -139,15 +153,19 @@ app.whenReady().then(async () => {
     onOpenMain: () => openMain(null),
     onRefresh: () => broadcastChanged(),
     onToggleAutoSync: (next) => {
-      void writePreferences(storageRoot, { autoSync: next }, servicePaths?.windowStartModel).then(
-        applyPreferences
-      )
+      void writePreferences(
+        storageRoot,
+        { autoSync: next },
+        servicePaths?.windowStartModel,
+        servicePaths?.windowStartReasoningEffort
+      ).then(applyPreferences)
     },
     onToggleStartAtLogin: (next) => {
       void writePreferences(
         storageRoot,
         { startAtLogin: next },
-        servicePaths?.windowStartModel
+        servicePaths?.windowStartModel,
+        servicePaths?.windowStartReasoningEffort
       ).then(applyPreferences)
     },
     onQuit: () => app.quit()

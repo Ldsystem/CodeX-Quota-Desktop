@@ -15,7 +15,8 @@ const INITIAL: ShellPreferences = {
   startAtLogin: false,
   menuBarOnly: false,
   autoSync: true,
-  windowStartModel: ''
+  windowStartModel: '',
+  windowStartReasoningEffort: ''
 }
 
 export interface PreferencesState {
