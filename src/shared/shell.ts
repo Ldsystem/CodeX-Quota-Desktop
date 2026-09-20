@@ -17,6 +17,8 @@ export interface ShellPreferences {
    * its week begins counting now. Off means the app only ever reads when asked.
    */
   autoSync: boolean
+  /** Model used for the minimal billed request; empty delegates to Codex. */
+  windowStartModel: string
 }
 
 export interface TrayStatus {

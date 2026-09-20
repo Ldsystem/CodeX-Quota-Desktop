@@ -6,6 +6,7 @@
  */
 
 import { homedir } from 'node:os'
+import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 export interface CodexQuotaPaths {
@@ -29,23 +30,66 @@ export interface CodexQuotaPaths {
 
 type Env = Record<string, string | undefined>
 
-const DEFAULT_PROXY = 'http://127.0.0.1:7897'
 const DEFAULT_USAGE_URL = 'https://chatgpt.com/backend-api/wham/usage'
 const DEFAULT_TOKEN_URL = 'https://auth.openai.com/oauth/token'
 const DEFAULT_CLIENT_ID = 'app_EMoamEEZ73f0CkXaXp7hrann'
-const DEFAULT_WINDOW_START_MODEL = 'gpt-5.4-mini'
 const DEFAULT_WINDOW_START_EFFORT = 'low'
 
-/** `CQ_HTTP_PROXY` doubles as an off switch in the CLI. */
-function resolveProxy(value: string | undefined): string | null {
-  const proxy = value ?? DEFAULT_PROXY
+/** App-specific proxy first, then the standard HTTPS and HTTP variables. */
+function proxyFrom(source: Env): string | undefined {
+  return source.CQ_HTTP_PROXY ?? source.HTTPS_PROXY ?? source.HTTP_PROXY
+}
+
+/** Explicit empty/off values disable proxying. */
+function resolveProxy(processEnv: Env, fileEnv: Env): string | null {
+  const proxy = proxyFrom(processEnv) ?? proxyFrom(fileEnv)
+  if (proxy === undefined) return null
   if (proxy === '' || proxy === '0' || proxy === 'off' || proxy === 'false') return null
   return proxy
 }
 
-export function resolvePaths(env: Env = {}, home: string = homedir()): CodexQuotaPaths {
+/** Read simple dotenv assignments without changing the process environment. */
+export async function readCodexQuotaEnvFile(home: string = homedir()): Promise<Env> {
+  try {
+    return parseEnv(await readFile(join(home, '.codex-quota', '.env'), 'utf8'))
+  } catch {
+    return {}
+  }
+}
+
+function parseEnv(body: string): Env {
+  const result: Env = {}
+  for (const rawLine of body.split(/\r?\n/)) {
+    const line = rawLine.trim()
+    if (line.length === 0 || line.startsWith('#')) continue
+    const assignment = line.startsWith('export ') ? line.slice(7).trimStart() : line
+    const separator = assignment.indexOf('=')
+    if (separator < 1) continue
+    const key = assignment.slice(0, separator).trim()
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) continue
+    let value = assignment.slice(separator + 1).trim()
+    if (
+      value.length >= 2 &&
+      ((value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'")))
+    ) {
+      value = value.slice(1, -1)
+    } else {
+      value = value.replace(/\s+#.*$/, '').trimEnd()
+    }
+    result[key] = value
+  }
+  return result
+}
+
+export function resolvePaths(
+  env: Env = {},
+  home: string = homedir(),
+  fileEnv: Env = {}
+): CodexQuotaPaths {
   const root = join(home, '.codex-quota')
   const codexHome = join(home, '.codex')
+  const configured = (key: string, fallback: string): string => env[key] ?? fileEnv[key] ?? fallback
 
   return {
     home: root,
@@ -55,12 +99,15 @@ export function resolvePaths(env: Env = {}, home: string = homedir()): CodexQuot
     activeJson: join(root, 'active.json'),
     codexHome,
     liveAuth: join(codexHome, 'auth.json'),
-    usageUrl: env.CQ_QUOTA_USAGE_URL ?? DEFAULT_USAGE_URL,
-    tokenUrl: env.CQ_OAUTH_TOKEN_URL ?? DEFAULT_TOKEN_URL,
-    oauthClientId: env.CQ_OAUTH_CLIENT_ID ?? DEFAULT_CLIENT_ID,
-    proxyUrl: resolveProxy(env.CQ_HTTP_PROXY),
-    windowStartModel: env.CQ_START_5H_MODEL ?? DEFAULT_WINDOW_START_MODEL,
-    windowStartReasoningEffort: env.CQ_START_5H_REASONING_EFFORT ?? DEFAULT_WINDOW_START_EFFORT
+    usageUrl: configured('CQ_QUOTA_USAGE_URL', DEFAULT_USAGE_URL),
+    tokenUrl: configured('CQ_OAUTH_TOKEN_URL', DEFAULT_TOKEN_URL),
+    oauthClientId: configured('CQ_OAUTH_CLIENT_ID', DEFAULT_CLIENT_ID),
+    proxyUrl: resolveProxy(env, fileEnv),
+    windowStartModel: configured('CQ_START_5H_MODEL', ''),
+    windowStartReasoningEffort: configured(
+      'CQ_START_5H_REASONING_EFFORT',
+      DEFAULT_WINDOW_START_EFFORT
+    )
   }
 }
 

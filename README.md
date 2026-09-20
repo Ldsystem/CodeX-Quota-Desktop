@@ -115,6 +115,8 @@ Each account gets a profile directory holding its own `auth.json`. Switching cop
 ```
 ~/.codex-quota/
   accounts.txt          the accounts you have registered
+  .env                  optional network and API overrides
+  desktop-app.json      menu bar and window-priming preferences
   accounts/<name>/      per-account auth.json and profile.json
   backups/              the live credential as it was before each switch
   active.json           which account the live credential belongs to
@@ -128,17 +130,22 @@ Quota comes from the same endpoints Codex itself uses, authenticated with each a
 
 ## Configuration
 
-Everything has a working default; these are the escape hatches.
+Put network overrides in `~/.codex-quota/.env`, or set them in the app's process
+environment. Process variables take precedence over the file. With no proxy variable,
+the app connects directly.
 
 | Variable | Purpose |
 | --- | --- |
 | `CODEX_QUOTA_CODEX_BIN` | The `codex` to run, when the search finds the wrong one or none |
-| `CQ_HTTP_PROXY` | Proxy for API calls; `off` disables the default `http://127.0.0.1:7897` |
+| `HTTPS_PROXY` / `HTTP_PROXY` | Proxy for API calls (`HTTPS_PROXY` wins within the same source) |
+| `CQ_HTTP_PROXY` | Backward-compatible app-specific proxy override; `off` disables proxying |
 | `CQ_QUOTA_USAGE_URL` | Override the usage endpoint |
-| `CQ_START_5H_MODEL` | Model used to prime a quota window (default `gpt-5.4-mini`) |
+| `CQ_START_5H_MODEL` | Initial model used to prime a quota window; Settings can persist a replacement |
 | `CQ_START_5H_REASONING_EFFORT` | Reasoning effort for that request (default `low`) |
 
-Settings shows the resolved paths, the proxy, and which `codex` was found.
+Settings shows the resolved paths, the proxy, and which `codex` was found. The priming model is
+editable there and saved to `desktop-app.json`; leaving it empty lets Codex select its configured
+default model.
 
 ## Development
 

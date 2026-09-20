@@ -410,7 +410,7 @@ export function trayTitle(accounts: readonly AccountView[]): string {
 
 function readPercentLeft(account: AccountView): number | null {
   if (account.quota.status !== 'ready') return null
-  const window = fiveHourWindow(account.quota.report)
+  const window = fiveHourWindow(account.quota.report) ?? weeklyWindow(account.quota.report)
   return window === null ? null : quotaPercentLeft(window)
 }
 

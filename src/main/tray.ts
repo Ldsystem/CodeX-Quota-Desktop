@@ -76,7 +76,12 @@ export function createTray(
   const tray = new Tray(image)
   tray.setToolTip(chrome.tooltip)
 
-  let preferences: ShellPreferences = { startAtLogin: false, menuBarOnly: false, autoSync: true }
+  let preferences: ShellPreferences = {
+    startAtLogin: false,
+    menuBarOnly: false,
+    autoSync: true,
+    windowStartModel: ''
+  }
   let menu = buildMenu(handlers, preferences)
 
   // The menu is popped up explicitly rather than attached with setContextMenu:

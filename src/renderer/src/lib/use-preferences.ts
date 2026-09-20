@@ -11,7 +11,12 @@ import { useCallback, useEffect, useState } from 'react'
 import type { ShellPreferences } from '../../../shared/shell'
 import { shell } from './shell'
 
-const INITIAL: ShellPreferences = { startAtLogin: false, menuBarOnly: false, autoSync: true }
+const INITIAL: ShellPreferences = {
+  startAtLogin: false,
+  menuBarOnly: false,
+  autoSync: true,
+  windowStartModel: ''
+}
 
 export interface PreferencesState {
   preferences: ShellPreferences

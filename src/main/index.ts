@@ -8,11 +8,12 @@
  */
 
 import { BrowserWindow, app } from 'electron'
+import { homedir } from 'node:os'
 import { join } from 'node:path'
 
 import type { ShellPreferences, TrayStatus } from '../shared/shell'
 import { createCodexQuotaService } from './codex-quota/service'
-import { resolvePaths } from './codex-quota/paths'
+import { readCodexQuotaEnvFile, resolvePaths, type CodexQuotaPaths } from './codex-quota/paths'
 import { registerCodexQuotaIpc } from './ipc'
 import { createPanel } from './panel'
 import type { Panel } from './panel'
@@ -34,12 +35,11 @@ if (process.platform === 'win32') {
 const isDev = !app.isPackaged
 const preloadPath = join(__dirname, '../preload/index.cjs')
 const rendererUrl = isDev ? process.env['ELECTRON_RENDERER_URL'] : undefined
-const storageRoot = resolvePaths(process.env).home
-
 let mainWindow: BrowserWindow | null = null
 let panel: Panel | null = null
 let tray: TrayController | null = null
 let quitting = false
+let servicePaths: CodexQuotaPaths | null = null
 
 function createMainWindow(): BrowserWindow {
   const window = new BrowserWindow({
@@ -96,6 +96,7 @@ function openMain(account: string | null): void {
 }
 
 function applyPreferences(preferences: ShellPreferences): void {
+  if (servicePaths) servicePaths.windowStartModel = preferences.windowStartModel
   tray?.setPreferences(preferences)
   broadcastPreferences(preferences)
 
@@ -108,12 +109,21 @@ function applyPreferences(preferences: ShellPreferences): void {
 }
 
 app.whenReady().then(async () => {
-  registerCodexQuotaIpc(createCodexQuotaService(undefined, { allowTokenRefresh: true }))
+  const home = homedir()
+  servicePaths = resolvePaths(process.env, home, await readCodexQuotaEnvFile(home))
+  const storageRoot = servicePaths.home
+  const initialPreferences = await readPreferences(storageRoot, servicePaths.windowStartModel)
+  servicePaths.windowStartModel = initialPreferences.windowStartModel
+  registerCodexQuotaIpc(createCodexQuotaService(servicePaths, { allowTokenRefresh: true }))
 
   registerShellIpc({
-    readPreferences: () => readPreferences(storageRoot),
+    readPreferences: () => readPreferences(storageRoot, servicePaths?.windowStartModel),
     writePreferences: async (changes) => {
-      const preferences = await writePreferences(storageRoot, changes)
+      const preferences = await writePreferences(
+        storageRoot,
+        changes,
+        servicePaths?.windowStartModel
+      )
       applyPreferences(preferences)
       return preferences
     },
@@ -129,15 +139,21 @@ app.whenReady().then(async () => {
     onOpenMain: () => openMain(null),
     onRefresh: () => broadcastChanged(),
     onToggleAutoSync: (next) => {
-      void writePreferences(storageRoot, { autoSync: next }).then(applyPreferences)
+      void writePreferences(storageRoot, { autoSync: next }, servicePaths?.windowStartModel).then(
+        applyPreferences
+      )
     },
     onToggleStartAtLogin: (next) => {
-      void writePreferences(storageRoot, { startAtLogin: next }).then(applyPreferences)
+      void writePreferences(
+        storageRoot,
+        { startAtLogin: next },
+        servicePaths?.windowStartModel
+      ).then(applyPreferences)
     },
     onQuit: () => app.quit()
   })
 
-  applyPreferences(await readPreferences(storageRoot))
+  applyPreferences(initialPreferences)
 
   // Launched at login the app should arrive as an icon, not as a window in
   // front of whatever the user is doing.

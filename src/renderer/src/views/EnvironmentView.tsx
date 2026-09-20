@@ -1,3 +1,5 @@
+import { useEffect, useId, useState } from 'react'
+
 import type { EnvironmentSnapshot } from '../../../shared/codex-quota'
 import { Panel } from '../components/Panel'
 import { hasShell } from '../lib/shell'
@@ -8,12 +10,15 @@ interface EnvironmentViewProps {
 }
 
 /**
- * Paths and settings are read-only, since they come from the environment the
- * app was launched with. The two menu bar preferences are not: they are the
- * only things here the app itself owns.
+ * Paths and network settings are read-only. Menu bar behavior and the model
+ * used for window priming are app-owned preferences and can be changed here.
  */
 export function EnvironmentView({ environment }: EnvironmentViewProps): React.JSX.Element {
   const { preferences, update: change } = usePreferences()
+  const [windowStartModel, setWindowStartModel] = useState(preferences.windowStartModel)
+  const modelId = useId()
+
+  useEffect(() => setWindowStartModel(preferences.windowStartModel), [preferences.windowStartModel])
 
   if (environment === null) {
     return <p className="panel__empty">Reading local state.</p>
@@ -126,14 +131,42 @@ export function EnvironmentView({ environment }: EnvironmentViewProps): React.JS
         <div className="fact-column">
           <div className="fact-grid">
             <div className="fact">
-              <span className="fact__label">Model</span>
-              <span className="fact__value numeric">{environment.windowStartModel}</span>
-            </div>
-            <div className="fact">
               <span className="fact__label">Reasoning effort</span>
               <span className="fact__value numeric">{environment.windowStartReasoningEffort}</span>
             </div>
           </div>
+          <form
+            className="field"
+            onSubmit={(event) => {
+              event.preventDefault()
+              change({ windowStartModel })
+            }}
+          >
+            <label className="field__label" htmlFor={modelId}>
+              Model for billed requests
+            </label>
+            <input
+              id={modelId}
+              className="field__input numeric"
+              value={windowStartModel}
+              placeholder="Codex configured default"
+              autoComplete="off"
+              spellCheck={false}
+              onChange={(event) => setWindowStartModel(event.target.value)}
+            />
+            <span className="field__hint">
+              Enter any model ID, or leave this empty to let Codex choose its configured default.
+            </span>
+            <div>
+              <button
+                type="submit"
+                className="button button--primary"
+                disabled={windowStartModel.trim() === preferences.windowStartModel}
+              >
+                Save model
+              </button>
+            </div>
+          </form>
           <Path label="codex command" value={environment.codexBinary ?? 'Not found on this machine'} />
           <p className="panel__note">
             Starting a window sends one minimal request so the quota window begins counting from a
