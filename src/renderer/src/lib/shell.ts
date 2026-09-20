@@ -11,7 +11,8 @@ function stub(): CodexQuotaShell {
     startAtLogin: false,
     menuBarOnly: false,
     autoSync: true,
-    windowStartModel: ''
+    windowStartModel: '',
+    windowStartReasoningEffort: ''
   }
   let listeners: Array<(next: ShellPreferences) => void> = []
 

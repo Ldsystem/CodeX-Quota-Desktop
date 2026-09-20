@@ -34,7 +34,13 @@ import { activeMatchesAccount } from './active'
 import { activateAccount, deleteStoredAuth, importActive } from './activate'
 import { readAuthCredentials, type AuthCredentials } from './auth-file'
 import { sha256File } from './checksum'
-import { resolveCodexBinary, runCodex, startedBilledTurn, type ResolvedBinary } from './codex-cli'
+import {
+  resolveCodexBinary,
+  runCodex,
+  startedBilledTurn,
+  windowStartArgs,
+  type ResolvedBinary
+} from './codex-cli'
 import { isDesktopRunning } from './desktop'
 import { ActionError } from './errors'
 import { requestJson } from './http'
@@ -407,7 +413,7 @@ export function createCodexQuotaService(
   }
 
   /** One minimal billed request, which is what actually starts the window. */
-  async function startWindow(account: string): Promise<{ detail: string }> {
+  async function startWindow(account: string): Promise<{ detail: string; response: string }> {
     const name = await requireAccount(paths, account)
     if ((await sha256File(accountAuthPath(paths, name))) === null) {
       throw new ActionError(
@@ -419,30 +425,19 @@ export function createCodexQuotaService(
     const binary = await requireCodex()
     await ensureStorage(paths)
     const workdir = await mkdtemp(join(paths.home, '.start-window-'))
+    const responsePath = join(workdir, 'response.txt')
 
     try {
-      const modelArgs = paths.windowStartModel.length > 0 ? ['-m', paths.windowStartModel] : []
       const result = await runCodex(binary.path, {
         codexHome: accountDir(paths, name),
         stdin: 'Reply with exactly: ok',
         timeoutMs: 180_000,
-        args: [
-          'exec',
-          '--ephemeral',
-          '--skip-git-repo-check',
-          '--ignore-rules',
-          '--ignore-user-config',
-          '--color',
-          'never',
-          '--json',
-          ...modelArgs,
-          '-s',
-          'read-only',
-          '-C',
+        args: windowStartArgs({
+          model: paths.windowStartModel,
+          reasoningEffort: paths.windowStartReasoningEffort,
           workdir,
-          '-c',
-          `model_reasoning_effort="${paths.windowStartReasoningEffort}"`
-        ]
+          outputPath: responsePath
+        })
       })
 
       if (!startedBilledTurn(result.stdout)) {
@@ -455,8 +450,19 @@ export function createCodexQuotaService(
         )
       }
 
+      const response = await readFile(responsePath, 'utf8')
+        .then((body) => body.trim())
+        .catch(() => '')
+      if (response.length === 0) {
+        throw new ActionError(
+          `Codex completed a billed turn for ${name}, but returned no response text.`,
+          'Check the selected model and reasoning effort, then try again.'
+        )
+      }
+
       return {
-        detail: `Billed one ${paths.windowStartModel || 'Codex default model'} request through ${binary.path}. Refresh to see the new window.`
+        detail: `Billed one ${paths.windowStartModel || 'Codex default model'} request through ${binary.path}. Refresh to see the new window.`,
+        response
       }
     } finally {
       await rm(workdir, { recursive: true, force: true }).catch(() => undefined)

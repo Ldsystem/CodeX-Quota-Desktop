@@ -19,25 +19,30 @@ afterEach(async () => {
   await Promise.all(scratch.splice(0).map((path) => rm(path, { recursive: true, force: true })))
 })
 
-describe('window priming model preference', () => {
-  it('uses the Codex default when no model has been saved', async () => {
+describe('window priming request preferences', () => {
+  it('uses the Codex defaults when no request settings have been saved', async () => {
     const root = await mkdtemp(join(tmpdir(), 'codex-quota-preferences-'))
     scratch.push(root)
 
-    await expect(readPreferences(root)).resolves.toMatchObject({ windowStartModel: '' })
+    await expect(readPreferences(root)).resolves.toMatchObject({
+      windowStartModel: '',
+      windowStartReasoningEffort: ''
+    })
   })
 
-  it('uses the launch configuration until a model preference is saved', async () => {
+  it('uses the launch configuration until request preferences are saved', async () => {
     const root = await mkdtemp(join(tmpdir(), 'codex-quota-preferences-'))
     scratch.push(root)
 
-    await expect(readPreferences(root, 'launch-model')).resolves.toMatchObject({
-      windowStartModel: 'launch-model'
+    await expect(readPreferences(root, 'launch-model', 'medium')).resolves.toMatchObject({
+      windowStartModel: 'launch-model',
+      windowStartReasoningEffort: 'medium'
     })
-    await writePreferences(root, { autoSync: false }, 'launch-model')
+    await writePreferences(root, { autoSync: false }, 'launch-model', 'medium')
     await expect(readPreferences(root)).resolves.toMatchObject({
       autoSync: false,
-      windowStartModel: 'launch-model'
+      windowStartModel: 'launch-model',
+      windowStartReasoningEffort: 'medium'
     })
   })
 
@@ -51,5 +56,21 @@ describe('window priming model preference', () => {
     expect(JSON.parse(await readFile(preferencesPath(root), 'utf8'))).toMatchObject({
       windowStartModel: 'future-model-1'
     })
+  })
+
+  it('persists an arbitrary reasoning effort, including an empty Codex default', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'codex-quota-preferences-'))
+    scratch.push(root)
+
+    const saved = await writePreferences(root, {
+      windowStartReasoningEffort: 'custom-effort'
+    })
+    expect(saved.windowStartReasoningEffort).toBe('custom-effort')
+    expect(JSON.parse(await readFile(preferencesPath(root), 'utf8'))).toMatchObject({
+      windowStartReasoningEffort: 'custom-effort'
+    })
+
+    const delegated = await writePreferences(root, { windowStartReasoningEffort: '  ' })
+    expect(delegated.windowStartReasoningEffort).toBe('')
   })
 })

@@ -1030,6 +1030,12 @@ select {
   gap: var(--space-2);
 }
 
+.field-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: var(--space-3);
+}
+
 .field__label {
   font-size: var(--text-sm);
   font-weight: 600;
@@ -1139,6 +1145,22 @@ select {
 .toast__detail {
   color: var(--fg-secondary);
   font-size: var(--text-xs);
+}
+
+.toast__response {
+  max-height: 9rem;
+  margin: var(--space-2) 0 0;
+  padding: var(--space-2);
+  overflow: auto;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  border-radius: var(--radius-control);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--text-xs);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
 }
 
 .toast__path {

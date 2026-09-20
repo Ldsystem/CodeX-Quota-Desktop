@@ -50,3 +50,26 @@ describe('proxy configuration', () => {
     ).toBe('http://secure:8443')
   })
 })
+
+describe('window priming configuration', () => {
+  it('delegates model and reasoning effort to Codex by default', () => {
+    const paths = resolvePaths({}, '/tmp/example', {})
+
+    expect(paths.windowStartModel).toBe('')
+    expect(paths.windowStartReasoningEffort).toBe('')
+  })
+
+  it('accepts arbitrary model and reasoning effort values', () => {
+    const paths = resolvePaths(
+      {
+        CQ_START_5H_MODEL: 'gpt-5.6-luna',
+        CQ_START_5H_REASONING_EFFORT: 'custom-effort'
+      },
+      '/tmp/example',
+      {}
+    )
+
+    expect(paths.windowStartModel).toBe('gpt-5.6-luna')
+    expect(paths.windowStartReasoningEffort).toBe('custom-effort')
+  })
+})

@@ -87,6 +87,43 @@ export interface RunResult {
   timedOut: boolean
 }
 
+export interface WindowStartArgsOptions {
+  model: string
+  reasoningEffort: string
+  workdir: string
+  outputPath: string
+}
+
+/** Build the minimal billed request without pinning unsupported model options. */
+export function windowStartArgs(options: WindowStartArgsOptions): string[] {
+  const model = options.model.trim()
+  const reasoningEffort = options.reasoningEffort.trim()
+  const modelArgs = model.length > 0 ? ['-m', model] : []
+  const effortArgs =
+    reasoningEffort.length > 0
+      ? ['-c', `model_reasoning_effort=${JSON.stringify(reasoningEffort)}`]
+      : []
+
+  return [
+    'exec',
+    '--ephemeral',
+    '--skip-git-repo-check',
+    '--ignore-rules',
+    '--ignore-user-config',
+    '--color',
+    'never',
+    '--json',
+    '--output-last-message',
+    options.outputPath,
+    ...modelArgs,
+    '-s',
+    'read-only',
+    '-C',
+    options.workdir,
+    ...effortArgs
+  ]
+}
+
 async function executable(path: string): Promise<boolean> {
   try {
     await access(path, constants.X_OK)

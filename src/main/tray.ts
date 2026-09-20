@@ -80,7 +80,8 @@ export function createTray(
     startAtLogin: false,
     menuBarOnly: false,
     autoSync: true,
-    windowStartModel: ''
+    windowStartModel: '',
+    windowStartReasoningEffort: ''
   }
   let menu = buildMenu(handlers, preferences)
 

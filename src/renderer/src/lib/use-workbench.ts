@@ -202,6 +202,7 @@ export function useWorkbench(service: CodexQuotaService): WorkbenchState {
             ok: outcome.ok,
             title: outcome.title,
             detail: outcome.detail,
+            response: outcome.response,
             backupPath: outcome.backupPath
           })
           readRegistry()

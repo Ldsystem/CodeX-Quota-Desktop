@@ -19,6 +19,8 @@ export interface ShellPreferences {
   autoSync: boolean
   /** Model used for the minimal billed request; empty delegates to Codex. */
   windowStartModel: string
+  /** Reasoning effort used for the request; empty delegates to Codex. */
+  windowStartReasoningEffort: string
 }
 
 export interface TrayStatus {
