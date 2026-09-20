@@ -421,6 +421,7 @@ export function createCodexQuotaService(
     const workdir = await mkdtemp(join(paths.home, '.start-window-'))
 
     try {
+      const modelArgs = paths.windowStartModel.length > 0 ? ['-m', paths.windowStartModel] : []
       const result = await runCodex(binary.path, {
         codexHome: accountDir(paths, name),
         stdin: 'Reply with exactly: ok',
@@ -434,8 +435,7 @@ export function createCodexQuotaService(
           '--color',
           'never',
           '--json',
-          '-m',
-          paths.windowStartModel,
+          ...modelArgs,
           '-s',
           'read-only',
           '-C',
@@ -451,12 +451,12 @@ export function createCodexQuotaService(
           result.timedOut
             ? 'The request timed out. Check the network, then try again.'
             : firstLine(result.stderr) ??
-              `Make sure the account is signed in, then try again. Model ${paths.windowStartModel}.`
+              `Make sure the account is signed in, then try again. Model ${paths.windowStartModel || 'Codex default'}.`
         )
       }
 
       return {
-        detail: `Billed one ${paths.windowStartModel} request through ${binary.path}. Refresh to see the new window.`
+        detail: `Billed one ${paths.windowStartModel || 'Codex default model'} request through ${binary.path}. Refresh to see the new window.`
       }
     } finally {
       await rm(workdir, { recursive: true, force: true }).catch(() => undefined)

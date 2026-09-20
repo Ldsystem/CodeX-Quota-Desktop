@@ -80,9 +80,9 @@ describe('trayTitle', () => {
     expect(trayTitle([account('live', live, 'yes')])).toBe('80%')
   })
 
-  it('is empty when the account in use has only a weekly window', () => {
+  it('shows weekly remaining when the account in use has no five-hour window', () => {
     const live: QuotaState = { status: 'ready', report: weeklyOnly(20) }
-    expect(trayTitle([account('live', live, 'yes')])).toBe('')
+    expect(trayTitle([account('live', live, 'yes')])).toBe('80%')
   })
 
   it('marks a stand-in with five-hour remaining, not the tighter weekly figure', () => {

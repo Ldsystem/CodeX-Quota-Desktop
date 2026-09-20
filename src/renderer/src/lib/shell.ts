@@ -7,7 +7,12 @@
 import type { CodexQuotaShell, ShellPreferences } from '../../../shared/shell'
 
 function stub(): CodexQuotaShell {
-  let preferences: ShellPreferences = { startAtLogin: false, menuBarOnly: false, autoSync: true }
+  let preferences: ShellPreferences = {
+    startAtLogin: false,
+    menuBarOnly: false,
+    autoSync: true,
+    windowStartModel: ''
+  }
   let listeners: Array<(next: ShellPreferences) => void> = []
 
   return {
